@@ -6,8 +6,10 @@ import discord
 from discord.ext import commands
 from dotenv import load_dotenv
 
-liberal_policies_left = 0
-fascist_policies_left = 0
+liberal_policies_left = 6
+liberal_policies_played = 0
+fascist_policies_left = 11
+fascist_policies_played = 0
 players = []
 game_in_session = False
 
@@ -20,22 +22,8 @@ bot = commands.Bot(command_prefix='!')
 async def on_ready():
 	print(f'{bot.user.name} has connected to Discord!')
 
-@bot.command(pass_context=True, name = 'draw_policies', help='Allows the President to draw 3 new policies')
-@commands.has_role('Secret Hitler')
-@commands.has_role('President')
-async def draw_policies(ctx):
-	member = ctx.message.author
-	await member.create_dm()
-	await member.dm_channel.send(f'Policies will go here!')
-
-def initialize_game():
-	game_in_session = False
-	liberal_policies_left = 11
-	fascist_policies_left = 6
-	# Call function that figures out who is playing (registers new players), and assigns them the 'Secret Hitler' role
+# Commands for gameplay ----------------------------------------------------------------------------------------------------
 	
-	game_in_session = True
-
 @bot.command(pass_context=True, name = 'join_game', help='Join the game')
 async def join_game(ctx):
 	if not game_in_session:
@@ -57,5 +45,28 @@ async def leave_game(ctx):
 			await ctx.send(":white_check_mark: {} has now left the game!".format(ctx.message.author.mention))
 		else:
 			await ctx.send(f'You aren\'t part of the game yet!')
+	
+	
+@bot.command(pass_context=True, name = 'draw_policies', help='Allows the President to draw 3 new policies')
+@commands.has_role('Secret Hitler')
+@commands.has_role('President')
+async def draw_policies(ctx):
+	member = ctx.message.author
+	await member.create_dm()
+	await member.dm_channel.send(f'Policies will go here!')
+
+# Runs the game ----------------------------------------------------------------------------------------------------
+	
+def play_game():
+	game_in_session = False
+	liberal_policies_left = 6
+	liberal_policies_played = 0
+	fascist_policies_left = 11
+	fascist_policies_played = 0
+	
+	# Wait until game is started by command
+	while not game_in_session;
+		pass
+	
 
 bot.run(TOKEN)
