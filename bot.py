@@ -21,14 +21,102 @@ bot.fascist_policies_played = 0
 bot.policies = []
 bot.drawn_policies = []
 bot.discarded_policies = []
+bot.chancellor_nominee = ""
+bot.voting_open = False
+bot.voted_yes = 0
+bot.voted_no = 0
 
 
 @bot.event
 async def on_ready():
 	print(f'{bot.user.name} has connected to Discord!')
 
+@bot.event
+async def on_command_error(ctx, error):
+	if hasattr(ctx.command, 'on_error'):
+		return
+	error = getattr(error, 'original', error)
+	
+	if isinstance(error, commands.CommandNotFound):
+		return
+	elif isinstance(error, commands.MissingPermissions):
+		missing = [perm.replace('_', ' ').replace('guild', 'server').title() for perm in error.missing_perms]
+		if len(missing) > 2:
+			fmt = '{}, and {}'.format("**, **".join(missing[:-1]), missing[-1])
+		else:
+			fmt = ' and '.join(missing)
+		_message = 'You need the **{}** permission(s) to use this command.'.format(fmt)
+		await ctx.send(_message)
+		return
+	elif isinstance(error, commands.CheckFailure):
+		await ctx.send("You do not have permission to use this command.")
+		return
+	elif isinstance(error, commands.UserInputError):
+		await ctx.send("Invalid input.")
+		return
+	elif isinstance(error, commands.DisabledCommand):
+		await ctx.send('This command has been disabled.')
+		return
+	#else:
+		#await ctx.send("The command has failed for an unlisted reason")
+		#return
+
+@bot.command(pass_context = True, name = 'debug', help = 'Enables a number of flags to allow for proper debugging - requires \'Antagonist\' role')
+@commands.has_role('Antagonist')
+async def debug(ctx):
+	bot.players = []
+	bot.game_in_session = True
+	bot.joinable = True
+	bot.liberal_policies_left = 6
+	bot.liberal_policies_played = 0
+	bot.fascist_policies_left = 11
+	bot.fascist_policies_played = 0
+	bot.policies = []
+	bot.drawn_policies = []
+	bot.discarded_policies = []
+	bot.chancellor_nominee = ""
+	bot.voting_open = True
+	bot.voted_yes = 0
+	bot.voted_no = 0
+	await ctx.send("Debug Triggered")
+
 # Commands for gameplay ----------------------------------------------------------------------------------------------------
 
+@bot.event
+async def on_message(message):
+	channel = message.channel
+	if bot.game_in_session:
+		if message.content.startswith('ja'):
+			if bot.voting_open:
+				bot.voted_yes += 1
+			else:
+				await channel.send("Voting isn\'t open yet!")
+				return
+				
+		elif message.content.startswith('nein'):
+			if bot.voting_open:
+				bot.voted_no += 1
+			else:
+				await channel.send("Voting isn\'t open yet!")
+				return
+		else:
+			return
+			
+		if bot.voted_yes + bot.voted_no == len(bot.players):
+			bot.voting_open == False
+			await channel.send("Everyone has cast their vote! Voting is now closed.")
+			await channel.send("There were {} \'ja\' votes, and {} \'nein\' ones.".format(bot.voted_yes, bot.voted_no))
+			
+			if bot.voted_yes > bot.voted_no:
+				role = discord.utils.get(channel.roles, name="Chancellor")
+				chancellor_nominee.add_roles(role)
+				await channel.send("The motion passed! {} is now the Chancellor!".format(bot.chancellor_nominee))
+			else:
+				bot.chancellor_nominee = ""
+				await channel.send("The motion failed! No Chancellor has been elected.")
+	
+	await bot.process_commands(message)
+		
 #Allows a player to join a game that isn't underway	
 @bot.command(pass_context = True, name = 'join_game', help = 'Join the game')
 async def join_game(ctx):
@@ -64,27 +152,33 @@ async def leave_game(ctx):
 		else:
 			await ctx.send("A game is currently underway!")
 
-# 'Force quits' the game, just in case it gets stuck - NO WORKING YET (ADD CONFIRMATION PROMPT)
+# 'Force quits' the game, just in case it gets stuck (ADD CONFIRMATION PROMPT)
 @bot.command(pass_context = True, name = 'end_game', help = 'Ends the game')
 async def end_game(ctx):
 	if ctx.guild:
 		if bot.game_in_session:
 			bot.game_in_session = False
 			for member in bot.players:
-					member.remove_roles("Secret Hitler")
-					member.remove_roles("President")
-					member.remove_roles("Chancellor")
-					await ctx.send("{} has left the game".format(member.mention))
+				sh_role = discord.utils.get(ctx.guild.roles, name="Secret Hitler")
+				president_role = discord.utils.get(ctx.guild.roles, name="President")
+				chancellor_role = discord.utils.get(ctx.guild.roles, name="Chancellor")
+				#if sh_role in member.roles:
+				await member.remove_roles(sh_role)
+				#if president_role in member.roles:	
+				await member.remove_roles(president_role)
+				#if chancellor_role in member.roles:	
+				await member.remove_roles(chancellor_role)
+				await ctx.send("{} has left the game".format(member.mention))
 			await ctx.send("Game ended.")
 		else:
 			await ctx.send("Can't end game: one isn\'t running!")
 
-@bot.command(pass_context = True, name = 'player_count', help = 'Reports joined players (mostly for debug)')
+@bot.command(pass_context = True, name = 'player_count', help = 'Reports players in game / lobby')
 async def player_count(ctx):
 	if len(bot.players) == 0:
 		await ctx.send("There aren\'t any players!")
 	else:
-		await ctx.send("Players:")
+		await ctx.send("Players: " + str(len(bot.players)))
 		for player in bot.players:
 			await ctx.send(player.mention)
 			
@@ -95,10 +189,24 @@ async def player_count(ctx):
 async def appoint(ctx, nominee):
 	if ctx.guild:
 		if bot.game_in_session:
-			for member in bot.players:
-				if member.mention == nominee:
-						member.add_roles("Chancellor")
-						await ctx.send(":white_check_mark: {} has been nominated as Chancellor!".format(ctx.member.mention))
+			if bot.chancellor_nominee == "":
+				for player in bot.players:
+					if player.mention == nominee:
+						role = discord.utils.get(ctx.guild.roles, name="President")
+						if not role in player.roles:
+							bot.chancellor_nominee = nominee
+							bot.voting_open == True
+							await ctx.send(":white_check_mark: {} has been nominated as Chancellor!".format(player.mention))
+							await ctx.send("Voting has opened. Please type either \"ja\" or \"nein\" into this chat to place your vote")
+							await ctx.send("The game will continue once all players have voted.")
+						else:
+							await ctx.send("You can't nominate yourself!")
+					if nominee == "":
+						await ctx.send("Can\'t do that: player isn\'t in this game!")
+			else:
+				await ctx.send("Can\'t do that: a player has already been nominated as Chancellor")
+		else:
+			await ctx.send("Can\'t do that: game not in session!")
 		
 		
 # Allows the President to draw 3 policy cards, and DM's them the result		
@@ -111,6 +219,8 @@ async def draw_policies(ctx):
 			member = ctx.message.author
 			await member.create_dm()
 			await member.dm_channel.send(f'Policies will go here!')
+		else:
+			await ctx.send("Can\'t do that: game not in session!")
 
 # Allows the Chancellor to play a policy card
 @bot.command(pass_context = True, name = 'play_policy', help = 'Allows the Chancellor to play 1 policy, "liberal" or "fascist"')
@@ -126,10 +236,11 @@ async def play_policy(ctx, policy_type):
 				bot.fascist_policies_played += 1
 			else:
 				return
-	lib_address, fasc_address = display_board()
-	await ctx.send(file = discord.File(lib_address))
-	await ctx.send(file = discord.File(fasc_address))
-
+			lib_address, fasc_address = display_board()
+			await ctx.send(file = discord.File(lib_address))
+			await ctx.send(file = discord.File(fasc_address))
+		else:
+			await ctx.send("Can\'t do that: game not in session!")
 
 # Displays the current game boards
 def display_board():
@@ -163,8 +274,8 @@ def display_board():
 	
 # Runs the game ----------------------------------------------------------------------------------------------------
 
-@bot.command(pass_context = True, name = 'open_game', help = 'Allows players to join game / starts game sequence - DON\'T RUN THIS YET')
-async def open_game(ctx):
+@bot.command(pass_context = True, name = 'open_lobby', help = 'Allows players to join game / starts game sequence - DON\'T RUN THIS YET')
+async def open_lobby(ctx):
 	bot.players = []
 	bot.game_in_session = False
 	bot.joinable = True
@@ -175,81 +286,105 @@ async def open_game(ctx):
 	bot.policies = []
 	bot.drawn_policies = []
 	bot.discarded_policies = []
+	bot.chancellor_nominee = ""
+	bot.voting_open = False
+	bot.voted_yes = 0
+	bot.voted_no = 0
 	
-	await ctx.send("Game open!")
+	await ctx.send("Lobby open!")
+	await ctx.send("Join the lobby with the \"!join_game\" command!")
+	await ctx.send("Leave the lobby with the \"!leave_game\" command!")
+	await ctx.send("Check which players are in the lobby with the \"!player_count\" command!")
+	await ctx.send("When all players have joined the lobby, start the game with the \"!start_game\" command!")
 
 # Starts the game (ADD CONFIRMATION PROMPT)			
 @bot.command(pass_context = True, name = 'start_game', help = 'Starts the game')
 async def start_game(ctx):
 	if ctx.guild:
-		if not bot.game_in_session:
+		if bot.game_in_session:
+			await ctx.send("Can\'t start game: one\'s already running!")
+			return
+		else:
 			bot.game_in_session = True
 			bot.joinable = False
-			await ctx.send("Game started! (Joining has closed)")
-		else:
-			await ctx.send("Can\'t start game: one\'s already running!")
-	
-	# Rebuild player list now that changes have been finalized
-	bot.players = []
-	role = discord.utils.get(ctx.message.guild.roles, name="Secret Hitler")
-	for member in ctx.message.guild.members:
-			if role in member.roles: 
-				bot.players.append(member)
-	
-	lib_address, fasc_address = display_board()
-	await ctx.send(file = discord.File(lib_address))
-	await ctx.send(file = discord.File(fasc_address))
-	
-	# Create temporory list for assigning roles
-	unassigned_players = bot.players
-	
-	if len(unassigned_players) == 5 or len(unassigned_players) == 6:
-		selection = random.choice(range(0, len(unassigned_players) - 1))
-		member = unassigned_players[selection]
-		await member.create_dm()
-		await member.dm_channel.send(f'You are Hitler!')
-		unassigned_players.remove(member)
+			await ctx.send("Game starting! (Lobby has closed)")
+			
+			# Rebuild player list now that changes have been finalized
+			bot.players = []
+			role = discord.utils.get(ctx.message.guild.roles, name="Secret Hitler")
+			for member in ctx.message.guild.members:
+				if role in member.roles: 
+					bot.players.append(member)
+			
+			# Create temporory list for assigning roles
+			unassigned_players = bot.players
+			
+			# Check for correct player count
+			if len(unassigned_players) < 5 or len(unassigned_players) > 10:
+				await ctx.send("Game start failed: there aren\'t between 5 and 10 players!")
+				unassigned_players = []
+				await end_game(ctx)
+				return
+			
+			lib_address, fasc_address = display_board()
+			await ctx.send(file = discord.File(lib_address))
+			await ctx.send(file = discord.File(fasc_address))
+			
+			if len(unassigned_players) == 5 or len(unassigned_players) == 6:
+				selection = random.choice(range(0, len(unassigned_players) - 1))
+				member = unassigned_players[selection]
+				await member.create_dm()
+				await member.dm_channel.send(f'You are Hitler!')
+				unassigned_players.remove(member)
 		
-		selection = random.choice(range(0, len(unassigned_players) - 1))
-		member = unassigned_players[selection]
-		await member.create_dm()
-		await member.dm_channel.send(f'You are a fascist!')
-		unassigned_players.remove(member)
+				selection = random.choice(range(0, len(unassigned_players) - 1))
+				member = unassigned_players[selection]
+				await member.create_dm()
+				await member.dm_channel.send(f'You are a fascist!')
+				unassigned_players.remove(member)
 		
-	elif len(unassigned_players) == 7 or len(unassigned_players) == 8:
-		selection = random.choice(range(0, len(unassigned_players) - 1))
-		member = unassigned_players[selection]
-		await member.create_dm()
-		await member.dm_channel.send(f'You are Hitler!')
-		unassigned_players.remove(member)
+			elif len(unassigned_players) == 7 or len(unassigned_players) == 8:
+				selection = random.choice(range(0, len(unassigned_players) - 1))
+				member = unassigned_players[selection]
+				await member.create_dm()
+				await member.dm_channel.send(f'You are Hitler!')
+				unassigned_players.remove(member)
 		
-		for i in range (0, 2):
-			selection = random.choice(range(0, len(unassigned_players) - 1))
-			member = unassigned_players[selection]
-			await member.create_dm()
-			await member.dm_channel.send(f'You are a fascist!')
-			unassigned_players.remove(member)
+				for i in range (0, 2):
+					selection = random.choice(range(0, len(unassigned_players) - 1))
+					member = unassigned_players[selection]
+					await member.create_dm()
+					await member.dm_channel.send(f'You are a fascist!')
+					unassigned_players.remove(member)
 		
 
-	elif len(unassigned_players) == 9 or len(unassigned_players) == 10:
-		selection = random.choice(range(0, len(unassigned_players) - 1))
-		member = unassigned_players[selection]
-		await member.create_dm()
-		await member.dm_channel.send(f'You are Hitler!')
-		unassigned_players.remove(member)
+			else:
+				selection = random.choice(range(0, len(unassigned_players) - 1))
+				member = unassigned_players[selection]
+				await member.create_dm()
+				await member.dm_channel.send(f'You are Hitler!')
+				unassigned_players.remove(member)
+	
+				for i in range (0, 3):
+					selection = random.choice(range(0, len(unassigned_players) - 1))
+					member = unassigned_players[selection]
+					await member.create_dm()
+					await member.dm_channel.send(f'You are a fascist!')
+					unassigned_players.remove(member)
+	
+			for member in unassigned_players:
+				await member.create_dm()
+				await member.dm_channel.send(f'You are a liberal!')
+				unassigned_players.remove(member)
 		
-		for i in range (0, 3):
-			selection = random.choice(range(0, len(unassigned_players) - 1))
-			member = unassigned_players[selection]
-			await member.create_dm()
-			await member.dm_channel.send(f'You are a fascist!')
-			unassigned_players.remove(member)
 
-	selection = random.choice(range(0, len(bot.players) - 1))
-	member = bot.players[selection]
-	member.add_roles("President")
-	await ctx.send("Our first president is... {}!".format(member.mention))
-	await ctx.send("When you are ready, {}, please appoint a Chancellor with the \"!appoint @nickname\" command!".format(member.mention))
+			selection = random.choice(range(0, len(bot.players) - 1))
+			member = bot.players[selection]
+			member.add_roles("President")
+			await ctx.send("Our first president is... {}!".format(member.mention))
+			await ctx.send("When you are ready, {}, please appoint a Chancellor with the \"!appoint @nickname\" command!".format(member.mention))
+	
+	
 	
 # Voting function right in here -> part of appoint?
 
