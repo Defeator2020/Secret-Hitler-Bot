@@ -363,24 +363,36 @@ async def play_policy(ctx, policy_type):
 					await ctx.send("Hitler was {}".format(bot.hitler))
 				
 				if fascist_policies_played > fascist_before:
-					if bot.fascist_policies_played = 1:
+					if bot.fascist_policies_played == 1:
 						if len(bot.players) > 8:
 							bot.pres_power = True
 							bot.take_pres_action = bot.current_president
-							await ctx.send("President of this round, {}, you must VIEW THE TOP THREE CARDS of the deck before the game may continue.".format(bot.take_pres_action))
+							await ctx.send("President of this round, {}, you must INSPECT A PLAYER\'S LOYALTY before the game may continue.".format(bot.take_pres_action))
 							await ctx.send("Use the \"!presidential_power\" command to do this.")
 
-					elif bot.fascist_policies_played = 2:
+					elif bot.fascist_policies_played == 2:
 						if len(bot.players) > 6:
+							bot.pres_power = True
+							bot.take_pres_action = bot.current_president
+							await ctx.send("President of this round, {}, you must INSPECT A PLAYER\'S LOYALTY before the game may continue.".format(bot.take_pres_action))
+							await ctx.send("Use the \"!presidential_power\" command to do this.")
+
+					elif bot.fascist_policies_played == 3:
+						if len(bot.players) > 6:
+							bot.pres_power = True
+							bot.take_pres_action = bot.current_president
+							await ctx.send("President of this round, {}, you must CHOOSE THE NEXT PRESIDENT before the game may continue.".format(bot.take_pres_action))
+							await ctx.send("Use the \"!presidential_power\" command to do this.")
+						else:
 							bot.pres_power = True
 							bot.take_pres_action = bot.current_president
 							await ctx.send("President of this round, {}, you must VIEW THE TOP THREE CARDS of the deck before the game may continue.".format(bot.take_pres_action))
 							await ctx.send("Use the \"!presidential_power\" command to do this.")
-
-					elif bot.fascist_policies_played = 3:
+						
+					elif bot.fascist_policies_played == 4 or bot.fascist_policies_played == 5:
 						bot.pres_power = True
 						bot.take_pres_action = bot.current_president
-						await ctx.send("President of this round, {}, you must INSPECT A PLAYER\'S LOYALTY before the game may continue.".format(bot.take_pres_action))
+						await ctx.send("President of this round, {}, you must KILL A PLAYER before the game may continue.".format(bot.take_pres_action))
 						await ctx.send("Use the \"!presidential_power\" command to do this.")
 
 				if not bot.presidential_power:
@@ -496,7 +508,7 @@ async def presidential_power(ctx, target = None):
 				# Kill a player
 				bot.players.remove(target)
 				await ctx.send("{} has been killed!".format(target.mention))
-				if target = bot.hitler:
+				if target == bot.hitler:
 					end_game()
 					await ctx.send("Hitler has been killed!!! The liberals win!")
 					return
@@ -706,7 +718,7 @@ async def start_game(ctx):
 				bot.liberals.append(member)
 				print("{} is a Liberal".format(member.mention))
 			
-			if bot.fascists > 1:
+			if len(bot.fascists) > 1:
 				for member in bot.fascists:
 					temp_fascists = bot.fascists
 					temp_fascists.remove(member)
