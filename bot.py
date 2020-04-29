@@ -34,7 +34,7 @@ bot.current_chancellor = None
 bot.hitler = None
 bot.fascists = []
 bot.liberals = []
-bot.presidential_power = False
+bot.pres_power = False
 bot.take_pres_action = None
 
 @bot.event
@@ -353,36 +353,51 @@ async def play_policy(ctx, policy_type):
 					await ctx.send("The fascists have successfully passed their sixth policy! They win!")
 					await ctx.send("Hitler was {}".format(bot.hitler))
 				
-				if bot.fascist_policies_played = 3:
-					if fascist_policies_played > fascist_before:
-						bot.presidential_power = True
+				if fascist_policies_played > fascist_before:
+					if bot.fascist_policies_played = 1:
+						if len(bot.players) > 9:
+							bot.pres_power = True
+							bot.take_pres_action = bot.current_president
+							await ctx.send("President of this round, {}, you must VIEW THE TOP THREE CARDS of the deck before the game may continue.".format(bot.take_pres_action))
+							await ctx.send("Use the \"!presidential_power\" command to do this. You will receive a private message with the cards.")
+
+					elif bot.fascist_policies_played = 2:
+						if len(bot.players) > 6:
+							bot.pres_power = True
+							bot.take_pres_action = bot.current_president
+							await ctx.send("President of this round, {}, you must VIEW THE TOP THREE CARDS of the deck before the game may continue.".format(bot.take_pres_action))
+							await ctx.send("Use the \"!presidential_power\" command to do this. You will receive a private message with the cards.")
+
+					elif bot.fascist_policies_played = 3:
+						bot.pres_power = True
 						bot.take_pres_action = bot.current_president
-						await ctx.send("President of this round, {}, you must view the tpo three cards of the deck before the game may continue.".format(bot.take_pres_action))
-						await ctx.send("Use the \"!view_top_cards\" command to do this. You will receive a private message with the cards.")
+						await ctx.send("President of this round, {}, you must INSPECT A PLAYER\'S LOYALTY before the game may continue.".format(bot.take_pres_action))
+						await ctx.send("Use the \"!presidential_power\" command to do this. You will receive a private message with the cards.")
+
+				if not bot.presidential_power:
+					# Removes old government and selects a new President (next in the list of players)
+					current_index = bot.players.index(bot.current_president)
+					if current_index == (len(bot.players) - 1):
+						new_index = 0
+					else:
+						new_index = current_index + 1
 				
-				# Removes old government and selects a new President (next in the list of players)
-				current_index = bot.players.index(bot.current_president)
-				if current_index == (len(bot.players) - 1):
-					new_index = 0
-				else:
-					new_index = current_index + 1
+					await ctx.send("{} and {} have left office.".format(bot.current_president.mention, bot.current_chancellor.mention))
 				
-				await ctx.send("{} and {} have left office.".format(bot.current_president.mention, bot.current_chancellor.mention))
+					president_role = discord.utils.get(ctx.guild.roles, name="President")
+					chancellor_role = discord.utils.get(ctx.guild.roles, name="Chancellor")
+					await bot.current_president.remove_roles(president_role)
+					await bot.current_chancellor.remove_roles(chancellor_role)
+					bot.current_president = None
+					bot.current_chancellor = None
 				
-				president_role = discord.utils.get(ctx.guild.roles, name="President")
-				chancellor_role = discord.utils.get(ctx.guild.roles, name="Chancellor")
-				await bot.current_president.remove_roles(president_role)
-				await bot.current_chancellor.remove_roles(chancellor_role)
-				bot.current_president = None
-				bot.current_chancellor = None
+					bot.current_president = bot.players[new_index]
+					await bot.current_president.add_roles(president_role)
 				
-				bot.current_president = bot.players[new_index]
-				await bot.current_president.add_roles(president_role)
+					await ctx.send("{} is the new President!".format(bot.current_president.mention))
+					await ctx.send("When you are ready, {}, please nominate a Chancellor with the \"!nominate @nickname\" command!".format(bot.current_president.mention))
 				
-				await ctx.send("{} is the new President!".format(bot.current_president.mention))
-				await ctx.send("When you are ready, {}, please nominate a Chancellor with the \"!nominate @nickname\" command!".format(bot.current_president.mention))
-				
-				print(bot.players)
+					print(bot.players)
 				
 			else:
 				await ctx.send("You didn\'t get passed one of those! Try again.")
@@ -422,11 +437,59 @@ def display_board():
 	
 # Presidential powers --------------------------------------------------
 
-@bot.command(pass_context = True, name = 'view_top_cards', help = 'Allows the president to inspect the top three cards of the deck')
+@bot.command(pass_context = True, name = 'presidential_power', help = 'Allows the president to enact presidential powers')
+async def presidential_power(ctx):
+	if ctx.guild:
+		if pres_power == True:
+			if fascist_policies_played == 1:
+				if len(bot.players) > 8:
+					# Investigate identity
+					pres_power = False
+				else:
+					return
+					
+			elif fascist_policies_played == 2:
+				if len(bot.players) > 6:
+					# Investigate identity
+					pres_power = False
+				else:
+					return
+					
+			elif fascist_policies_played == 3:
+				if len(bot.players) < 7:
+					# Look at top three cards
+					pres_power = False
+				elif len(bot.players) > 6:
+					# Select next president
+					pres_power = False
+			
+			elif fascist_policies_played == 4 or fascist_policies_played == 5:
+				# Kill a player
+				pres_power = False
+	
+			# Removes old government and selects a new President (next in the list of players)
+			current_index = bot.players.index(bot.current_president)
+			if current_index == (len(bot.players) - 1):
+				new_index = 0
+			else:
+				new_index = current_index + 1
 
-@bot.command(pass_context = True, name = 'inspect_player', help = 'Allows the president to inspect a player\'s allegiance')
-async def inspect_player():
-	return
+			await ctx.send("{} and {} have left office.".format(bot.current_president.mention, bot.current_chancellor.mention))
+
+			president_role = discord.utils.get(ctx.guild.roles, name="President")
+			chancellor_role = discord.utils.get(ctx.guild.roles, name="Chancellor")
+			await bot.current_president.remove_roles(president_role)
+			await bot.current_chancellor.remove_roles(chancellor_role)
+			bot.current_president = None
+			bot.current_chancellor = None
+			
+			bot.current_president = bot.players[new_index]
+			await bot.current_president.add_roles(president_role)
+			
+			await ctx.send("{} is the new President!".format(bot.current_president.mention))
+			await ctx.send("When you are ready, {}, please nominate a Chancellor with the \"!nominate @nickname\" command!".format(bot.current_president.mention))
+			
+	print(bot.players)
 	
 # Runs the game ----------------------------------------------------------------------------------------------------
 
@@ -479,7 +542,7 @@ async def open_lobby(ctx):
 		bot.Hitler = None
 		bot.fascists = []
 		bot.liberals = []
-		bot.presidential_power = False
+		bot.pres_power = False
 		bot.take_pres_action = None
 	
 		await ctx.send("Lobby open!")
@@ -623,6 +686,8 @@ async def start_game(ctx):
 			
 	else:
 		await ctx.send("You can\'t use that here!")
+
+	# ADD VETO POWERS!!!!!
 
 # Just for fun --------------------------------------------------
 
