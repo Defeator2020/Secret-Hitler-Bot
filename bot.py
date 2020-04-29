@@ -36,6 +36,7 @@ bot.fascists = []
 bot.liberals = []
 bot.pres_power = False
 bot.take_pres_action = None
+bot.election_tracker = 0
 
 @bot.event
 async def on_ready():
@@ -145,8 +146,14 @@ async def on_message(message):
 					
 					else:
 						bot.chancellor_nominee = ""
-						await channel.send("The motion failed! No Chancellor has been elected.")
-					
+						bot.election_tracker += 1
+						await channel.send("The motion failed! No Chancellor has been elected, and the election tracker has increased by 1 to {}!".format(election_tracker))
+						if bot.election_tracker >= 3:
+							# Pass top card
+							await channel.send("The election tracker has reached 3 failed elections! The top policy card on the deck has been drawn:")
+							await channel.send("A new {} policy has been played!".format(bot.policies[0]))
+							play_policy(channel, bot.policies[0]) # VERIFY THAT THIS WORKS WITH "CHANNEL" IN PLACE OF "CTX"
+							bot.election_tracker = 0
 					bot.voted_yes = 0
 					bot.voted_no = 0
 			else:
@@ -263,7 +270,7 @@ async def nominate(ctx, nominee):
 		await ctx.send("You can\'t use that here!")
 		
 		
-# Allows the President to draw 3 policy cards, and DM's them the result		
+# Allows the President to enact their presidential powers, given that certain criteria are met		
 @bot.command(pass_context = True, name = 'draw_policies', help = 'Allows the President to draw 3 new policies')
 @commands.has_role('Secret Hitler')
 @commands.has_role('President')
@@ -329,6 +336,8 @@ async def play_policy(ctx, policy_type):
 	if ctx.guild:
 		if bot.game_in_session:
 			if policy_type in bot.top_three:
+				bot.policies.remove(policy_type)
+				bot.top_three = []
 				fascist_before = bot.fascist_policies_played
 				await ctx.send("{} played a {} card!".format(ctx.message.author.mention, policy_type))
 				if policy_type == "liberal":
@@ -469,6 +478,9 @@ async def presidential_power(ctx, target = None):
 			elif fascist_policies_played == 3:
 				if len(bot.players) < 7:
 					# Send the president the top three cards
+					for i in range(0,3):
+						await member.dm_channel.send(bot.policies[i])
+						bot.top_three.append(bot.policies[i])
 					await member.dm_channel.send("The top three cards are:")
 					for card in bot.top_three:
 						await member.dm_channel.send(str(card))
@@ -571,6 +583,7 @@ async def open_lobby(ctx):
 		bot.liberals = []
 		bot.pres_power = False
 		bot.take_pres_action = None
+		bot.election_tracker = 0
 	
 		await ctx.send("Lobby open!")
 		await ctx.send("Join the lobby with the \"!join_game\" command!")
