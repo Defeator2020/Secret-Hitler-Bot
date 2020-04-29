@@ -33,6 +33,9 @@ bot.current_president = None
 bot.current_chancellor = None
 bot.hitler = None
 bot.fascists = []
+bot.liberals = []
+bot.presidential_power = False
+bot.take_pres_action = None
 
 @bot.event
 async def on_ready():
@@ -326,6 +329,7 @@ async def play_policy(ctx, policy_type):
 	if ctx.guild:
 		if bot.game_in_session:
 			if policy_type in bot.top_three:
+				fascist_before = bot.fascist_policies_played
 				await ctx.send("{} played a {} card!".format(ctx.message.author.mention, policy_type))
 				if policy_type == "liberal":
 					bot.liberal_policies_played += 1
@@ -348,6 +352,13 @@ async def play_policy(ctx, policy_type):
 					end_game()
 					await ctx.send("The fascists have successfully passed their sixth policy! They win!")
 					await ctx.send("Hitler was {}".format(bot.hitler))
+				
+				if bot.fascist_policies_played = 3:
+					if fascist_policies_played > fascist_before:
+						bot.presidential_power = True
+						bot.take_pres_action = bot.current_president
+						await ctx.send("President of this round, {}, you must view the tpo three cards of the deck before the game may continue.".format(bot.take_pres_action))
+						await ctx.send("Use the \"!view_top_cards\" command to do this. You will receive a private message with the cards.")
 				
 				# Removes old government and selects a new President (next in the list of players)
 				current_index = bot.players.index(bot.current_president)
@@ -409,7 +420,13 @@ def display_board():
 
 	return liberal_address, fascist_address
 	
+# Presidential powers --------------------------------------------------
 
+@bot.command(pass_context = True, name = 'view_top_cards', help = 'Allows the president to inspect the top three cards of the deck')
+
+@bot.command(pass_context = True, name = 'inspect_player', help = 'Allows the president to inspect a player\'s allegiance')
+async def inspect_player():
+	return
 	
 # Runs the game ----------------------------------------------------------------------------------------------------
 
@@ -461,6 +478,9 @@ async def open_lobby(ctx):
 		bot.current_chancellor = None
 		bot.Hitler = None
 		bot.fascists = []
+		bot.liberals = []
+		bot.presidential_power = False
+		bot.take_pres_action = None
 	
 		await ctx.send("Lobby open!")
 		await ctx.send("Join the lobby with the \"!join_game\" command!")
@@ -580,6 +600,7 @@ async def start_game(ctx):
 				await member.create_dm()
 				await member.dm_channel.send(f'You are a liberal!')
 				await member.dm_channel.send(file = discord.File(r"D:\Projects\Discord\Bots\Games_Bot\Secret-Hitler-Bot\Images\liberal.png"))
+				bot.liberals.append(member)
 				print("{} is a Liberal".format(member.mention))
 			
 			if bot.fascists > 1:
@@ -602,9 +623,6 @@ async def start_game(ctx):
 			
 	else:
 		await ctx.send("You can\'t use that here!")
-
-
-# Add pictures to the "You are _____" messages
 
 # Just for fun --------------------------------------------------
 
