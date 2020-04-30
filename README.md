@@ -1,5 +1,8 @@
 # Secret Hitler Bot
- A bot to play the game Secret Hitler in Discord
+A bot to play the game Secret Hitler in Discord
+Relies on the discord.py library:
+- Webpage: https://discordpy.readthedocs.io/en/latest/intro.html
+- GitHub: https://github.com/Rapptz/discord.py
 
 A seriously rough, yet functional, work in progress.
 
