@@ -12,17 +12,19 @@ TOKEN = os.getenv('DISCORD_TOKEN')
 bot = commands.Bot(command_prefix='!')
 bot.guild = discord.utils.get(bot.guilds, name="games")
 
-# Enable this to turn off safeguards and most order/role checks so as to allow for much, much easier debugging
+# Enable this (set to 'True') to turn off safeguards and most order/role checks so as to allow for much, much easier debugging
 bot.debug_enable = False
 
 bot.game_in_session = False
+bot.joinable = False
 
+# Events for aiding in clarity (first) and handling messages / voting (second)
 
 @bot.event
 async def on_ready():
 	print(f'{bot.user.name} has connected to Discord!')
 
-# Handles any errors that come up during runtime
+# Handles any errors that come up during runtime - turn off to help with debugging (this blocks errors from showing up in the console)
 @bot.event
 async def on_command_error(ctx, error):
 	if hasattr(ctx.command, 'on_error'):
@@ -71,80 +73,108 @@ def debug_list(ctx):
 @bot.event
 async def on_message(message):
 	channel = message.channel
-	they_have_voted = False
-	if bot.game_in_session or bot.debug_enable:
-		if message.content.startswith('ja') or message.content.startswith('nein'):
+	if message.content.startswith('ja') or message.content.startswith('nein'):
+		if bot.game_in_session or bot.debug_enable:
+			they_have_voted = False
 			role = discord.utils.get(message.guild.roles, name="Secret Hitler")
-			if role in message.author.roles:
-				for member in bot.has_voted:
-					if message.author in bot.has_voted:
-						they_have_voted = True
-					else:
-						they_have_voted = False
+			if bot.voting_open:
+				if role in message.author.roles:
+					for member in bot.has_voted:
+						if message.author in bot.has_voted:
+							they_have_voted = True
+						else:
+							they_have_voted = False
 			
-				if they_have_voted == False or bot.debug_enable:
-					if message.content.startswith('ja'):
-						if bot.voting_open:
+					if they_have_voted == False or bot.debug_enable:
+						if message.content.startswith('ja'):
 							bot.voted_yes += 1
 							bot.has_voted.append(message.author)
 							await channel.send("Yes recorded, {}!".format(message.author.mention))
 							await channel.send(file = discord.File(r"D:\Projects\Discord\Bots\Games_Bot\Secret-Hitler-Bot\Images\ja.png"))
-						else:
-							await channel.send("Voting isn\'t open yet!")
-							return
 				
-					elif message.content.startswith('nein'):
-						if bot.voting_open:
+						elif message.content.startswith('nein'):
 							bot.voted_no += 1
 							bot.has_voted.append(message.author)
 							await channel.send("No recorded, {}!".format(message.author.mention))
 							await channel.send(file = discord.File(r"D:\Projects\Discord\Bots\Games_Bot\Secret-Hitler-Bot\Images\nein.png"))
 						else:
-							await channel.send("Voting isn\'t open yet!")
 							return
-					else:
-						return
 			
-					if bot.voted_yes + bot.voted_no >= len(bot.players):
-						bot.voting_open = False
+						if bot.voted_yes + bot.voted_no >= len(bot.players): # Repeating error that occurs if people spam their votes, causing messages to be repeated once per final vote. Not breaking, just annoying
+							bot.voting_open = False
+							
+							# I'm restating these in this weird, totally inefficient way because I can't figure out why the vote counters aren't resetting
+							voted_yes = bot.voted_yes
+							voted_no = bot.voted_no 
+							bot.voted_yes = 0
+							bot.voted_no = 0
 				
-						await channel.send("Everyone has cast their vote! Voting is now closed.") # FIX REPEATING ERROR!!!!!!!!!!!!!!!!!!!!
-						await channel.send("There were {} \'ja\' votes, and {} \'nein\' votes.".format(bot.voted_yes, bot.voted_no)) # In debug mode, these counters loop over to the next election. Why?
+							await channel.send("Everyone has cast their vote! Voting is now closed.")
+							await channel.send("There were {} \'ja\' votes, and {} \'nein\' votes.".format(voted_yes, voted_no))
 
-						if bot.voted_yes > bot.voted_no:
-							role = discord.utils.get(message.guild.roles, name="Chancellor")
-							await bot.chancellor_nominee.add_roles(role)
-							bot.current_chancellor = bot.chancellor_nominee
+							if voted_yes > voted_no:
+								role = discord.utils.get(message.guild.roles, name="Chancellor")
+								await bot.chancellor_nominee.add_roles(role)
+								bot.current_chancellor = bot.chancellor_nominee
 						
-							if bot.current_chancellor == bot.hitler:
-								if bot.fascist_policies_played >= 3:
-									end_game()
-									await channel.send("Hitler has been elected Chancellor after 3 fascist policies had been passed! The fascists have won!!!")
-									await channel.send("{} was Hitler".format(bot.current_chancellor.mention))
-									return
+								if bot.current_chancellor == bot.hitler:
+									if bot.fascist_policies_played >= 3:
+										await channel.send("Hitler has been elected Chancellor after 3 fascist policies had been passed! The fascists have won!!!")
+										await end_game(ctx)
+										return
 
-							await channel.send("The motion passed! {} is now the Chancellor!".format(bot.current_chancellor.mention))
-							await channel.send("When you are ready, {}, please use the \"!draw\" command to take the top three policies from the deck.".format(bot.current_president.mention))
-							await channel.send("They will be sent to you in a private message. Look out for the one from \"Games Bot\"!")
+								await channel.send("The motion passed! {} is now the Chancellor!".format(bot.current_chancellor.mention))
+								await channel.send("When you are ready, {}, please use the \"!draw\" command to take the top three policies from the deck.".format(bot.current_president.mention))
+								await channel.send("They will be sent to you in a private message. Look out for the one from \"Games Bot\"!")
 					
-						else:
-							bot.current_chancellor = None
-							bot.election_tracker += 1
-							await channel.send("The motion failed! No Chancellor has been elected, and the election tracker has increased by 1 to {}!".format(election_tracker))
-							if bot.election_tracker >= 3:
-								# Pass top policy
-								await channel.send("The election tracker has reached 3 failed elections! The top policy card on the deck has been drawn:")
-								await channel.send("A new {} policy has been played!".format(bot.policies[0]))
-								play_policy(channel, bot.policies[0]) # VERIFY THAT THIS WORKS WITH "CHANNEL" IN PLACE OF "CTX"
-								bot.election_tracker = 0
+							else:
+								bot.current_chancellor = None
+								bot.election_tracker += 1
+								await channel.send("The motion failed! No Chancellor has been elected, and the election tracker has increased by 1 to {} (of 3)!".format(bot.election_tracker))
+								if bot.election_tracker >= 3:
+									# Pass top policy
+									await channel.send("The election tracker has reached 3 failed elections! The top policy card on the deck has been drawn:")
+									await channel.send("A new {} policy has been played!".format(bot.policies[0]))
+									bot.top_three.append(bot.policies[0])
+									play(bot.guild, bot.policies[0]) # VERIFY THAT THIS WORKS WITH "CHANNEL" IN PLACE OF "CTX" - Evaluate function under these conditions. I don't know if it will work.
+									bot.election_tracker = 0
+									
+								# Removes old government and selects a new President (next in the list of players) - NEEDS TO BE OWN FUNCTION, SO THAT THIS "PRESIDENTIAL RESET" CAN BE CALLED ON THE THREE DIFFERENT OCCASIONS IT'S NEEDED!!!!!
+								current_index = bot.players.index(bot.current_president)
+								if current_index == (len(bot.players) - 1):
+									new_index = 0
+								else:
+									new_index = current_index + 1
+				
+								await bot.temp_ctx.send("{} and {} have left office.".format(bot.current_president.mention, bot.current_chancellor.mention))
+				
+								president_role = discord.utils.get(bot.temp_ctx.guild.roles, name="President")
+								chancellor_role = discord.utils.get(bot.temp_ctx.guild.roles, name="Chancellor")
+								await bot.current_president.remove_roles(president_role)
+								await bot.current_chancellor.remove_roles(chancellor_role)
+								bot.current_president = None
+								bot.current_chancellor = None
+				
+								bot.current_president = bot.players[new_index]
+								await bot.current_president.add_roles(president_role)
 						
-						bot.voted_yes = 0
-						bot.voted_no = 0
+								# These are here just in case, since the single instance of them up in the 'on_message' event doesn't seem to always reset them
+								bot.voted_yes = 0
+								bot.voted_no = 0
+						
+								await bot.temp_ctx.send("{} is the new President!".format(bot.current_president.mention))
+								await bot.temp_ctx.send("When you are ready, {}, please nominate a Chancellor with the \"!nominate @nickname\" command!".format(bot.current_president.mention))
+					
+								bot.current_chancellor = None
+					
+								print(bot.players)
+						
+					else:
+						await channel.send("You have already voted, {}!".format(message.author.mention))
 				else:
-					await channel.send("You have already voted, {}!".format(message.author.mention))
+					await channel.send("You can\'t vote, {}, because you aren't in the game!".format(message.author.mention))
 			else:
-				await channel.send("You can\'t vote, {}, because you aren't in the game!".format(message.author.mention))
-
+				await channel.send("Voting isn\'t open yet!")
 	await bot.process_commands(message)
 
 #Allows a player to join a game that isn't underway	
@@ -196,14 +226,15 @@ async def end_game(ctx):
 				sh_role = discord.utils.get(ctx.guild.roles, name="Secret Hitler")
 				president_role = discord.utils.get(ctx.guild.roles, name="President")
 				chancellor_role = discord.utils.get(ctx.guild.roles, name="Chancellor")
-				#if sh_role in member.roles:
-				await member.remove_roles(sh_role)
-				#if president_role in member.roles:	
-				await member.remove_roles(president_role)
-				#if chancellor_role in member.roles:	
-				await member.remove_roles(chancellor_role)
+				remove_roles(sh_role, presidental_role, chancellor_role)
 				await ctx.send("{} has left the game".format(member.mention))
 			await ctx.send("Game ended.")
+			
+			await channel.send("{} was Hitler".format(bot.current_chancellor.mention))
+			for player in bot.fascists:
+				await bot.temp_ctx.send("{} was a Fascist".format(player.mention))
+			for player in bot.liberals:
+				await bot.ctx.send("{} was a Liberal".format(player.mention))
 		else:
 			await ctx.send("Can't end game: one isn\'t running!")
 	else:
@@ -252,7 +283,7 @@ async def nominate(ctx, nominee):
 				else:
 					await ctx.send("Can\'t do that: a player has already been nominated as Chancellor")
 			else:
-				await ctx.send("The president hasn\'t used his power yet!")
+				await ctx.send("The president hasn\'t used their power yet!")
 		else:
 			await ctx.send("Can\'t do that: game not in session!")
 	else:
@@ -348,14 +379,14 @@ async def play(ctx, policy_type):
 					await bot.temp_ctx.send("Discarded Policies: " + str(len(bot.discarded)))
 				
 					if bot.liberal_policies_played >= 5:
-						end_game()
 						await bot.temp_ctx.send("The liberals have successfully passed their fifth policy! They win!")
-						await bot.temp_ctx.send("{} was Hitler".format(bot.hitler))
+						await end_game(ctx)
+						return
 				
 					if bot.fascist_policies_played >= 6:
-						end_game()
 						await bot.temp_ctx.send("The fascists have successfully passed their sixth policy! They win!")
-						await bot.temp_ctx.send("{} was Hitler".format(bot.hitler))
+						await end_game(ctx)
+						return
 				
 					if bot.fascist_policies_played > fascist_before:
 						if bot.fascist_policies_played == 1:
@@ -409,7 +440,11 @@ async def play(ctx, policy_type):
 				
 						bot.current_president = bot.players[new_index]
 						await bot.current_president.add_roles(president_role)
-				
+						
+						# These are here just in case, since the single instance of them up in the 'on_message' event doesn't seem to always reset them
+						bot.voted_yes = 0
+						bot.voted_no = 0
+						
 						await bot.temp_ctx.send("{} is the new President!".format(bot.current_president.mention))
 						await bot.temp_ctx.send("When you are ready, {}, please nominate a Chancellor with the \"!nominate @nickname\" command!".format(bot.current_president.mention))
 					
@@ -489,12 +524,9 @@ async def power(ctx, target = None):
 			elif bot.fascist_policies_played == 3:
 				if len(bot.players) < 7:
 					# Send the president the top three cards
+					await member.dm_channel.send("The top three cards are:")
 					for i in range(0,3):
 						await member.dm_channel.send(bot.policies[i])
-						bot.top_three.append(bot.policies[i])
-					await member.dm_channel.send("The top three cards are:")
-					for card in bot.top_three:
-						await member.dm_channel.send(str(card))
 					
 					bot.top_three = []
 					bot.pres_power = False
@@ -505,13 +537,17 @@ async def power(ctx, target = None):
 					await ctx.send("New president selected")
 					bot.pres_power = False
 			
-			elif fascist_policies_played == 4 or fascist_policies_played == 5:
+			elif bot.fascist_policies_played == 4 or bot.fascist_policies_played == 5:
 				# Kill a player
+				sh_role = discord.utils.get(ctx.guild.roles, name="Secret Hitler") # Make these three roles "bot." variables, so they can be used globally and not re-declared every single time
+				presidential_role = discord.utils.get(ctx.guild.roles, name="President")
+				chancellor_role = discord.utils.get(ctx.guild.roles, name="Chancellor")
+				target.remove_roles(sh_role, presidental_role, chancellor_role)
 				bot.players.remove(target)
 				await ctx.send("{} has been killed!".format(target.mention))
 				if target == bot.hitler:
-					end_game()
 					await ctx.send("Hitler has been killed!!! The liberals win!")
+					await end_game(ctx)
 					return
 				bot.pres_power = False
 	
@@ -577,7 +613,7 @@ async def lobby(ctx):
 		if not bot.game_in_session:
 			bot.players = []
 			bot.game_in_session = False
-			bot.joinable = False
+			bot.joinable = True
 			bot.liberal_policies = 6
 			bot.liberal_policies_played = 0
 			bot.fascist_policies = 11
