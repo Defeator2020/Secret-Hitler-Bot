@@ -73,7 +73,7 @@ def debug_list(ctx):
 @bot.event
 async def on_message(message):
 	channel = message.channel
-	if ctx.guild:
+	if True:
 		if message.content.startswith('ja') or message.content.startswith('nein'):
 			if bot.game_in_session or bot.debug_enable:
 				they_have_voted = False
