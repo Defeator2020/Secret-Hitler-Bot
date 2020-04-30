@@ -4,8 +4,8 @@ Relies on the discord.py library:
 - Webpage: https://discordpy.readthedocs.io/en/latest/intro.html
 - GitHub: https://github.com/Rapptz/discord.py
 
-A seriously rough, yet functional, work in progress.
 
+A seriously rough, yet functional, work in progress.
 Requires that your server has the following roles:
 - "Secret Hitler"
 - "Liberal"
