@@ -12,7 +12,9 @@ TOKEN = os.getenv('DISCORD_TOKEN')
 bot = commands.Bot(command_prefix='!')
 bot.guild = discord.utils.get(bot.guilds, name="games")
 
-bot.debug_enable = True
+# Enable this to turn off safeguards and most order/role checks so as to allow for much, much easier debugging
+bot.debug_enable = False
+
 bot.game_in_session = False
 
 
@@ -21,7 +23,7 @@ async def on_ready():
 	print(f'{bot.user.name} has connected to Discord!')
 
 # Handles any errors that come up during runtime
-#@bot.event #RE-ENABLE AFTER TESTING IS COMPLETE
+@bot.event
 async def on_command_error(ctx, error):
 	if hasattr(ctx.command, 'on_error'):
 		return
