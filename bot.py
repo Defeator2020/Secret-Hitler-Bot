@@ -673,6 +673,8 @@ async def start_game(ctx):
 				if len(unassigned_players) < 5 or len(unassigned_players) > 10:
 					await ctx.send("Game start failed: there aren\'t between 5 and 10 players!")
 					unassigned_players = []
+					bot.fascists = []
+					bot.liberals = []
 					await end_game(ctx)
 					return
 			
