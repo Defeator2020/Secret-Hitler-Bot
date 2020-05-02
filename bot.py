@@ -151,6 +151,8 @@ async def on_message(message):
 				
 									president_role = discord.utils.get(bot.temp_ctx.guild.roles, name="President")
 									chancellor_role = discord.utils.get(bot.temp_ctx.guild.roles, name="Chancellor")
+									bot.previous_president = bot.current_president
+									bot.previous_chancellor = bot.current_chancellor
 									await bot.current_president.remove_roles(president_role)
 									await bot.current_chancellor.remove_roles(chancellor_role)
 									bot.current_president = None
@@ -266,17 +268,23 @@ async def nominate(ctx, nominee):
 				role = discord.utils.get(ctx.guild.roles, name="Chancellor")
 				for member in bot.players:
 					if role in member.roles:
-						bot.chancellor_nominee = None # MAKE THIS WORK
+						bot.chancellor_nominee = None # MAKE THIS WORK - should be "member", but it always throws the same error
 			
 				if bot.chancellor_nominee == None or bot.debug_enable:
 					for member in bot.players:
 						if member.mention == nominee:
 							if ctx.message.author != member or bot.debug_enable:
-								bot.chancellor_nominee = member
-								bot.voting_open = True
-								await ctx.send(":white_check_mark: {} has been nominated by {} as Chancellor!".format(member.mention, ctx.message.author.mention))
-								await ctx.send("Voting has opened. Please type either \"ja\" or \"nein\" into this chat to place your vote")
-								await ctx.send("The game will continue once all players have voted.")
+								if member != bot.previous_chancellor:
+									if member != bot.previous_president:
+										bot.chancellor_nominee = member
+										bot.voting_open = True
+										await ctx.send(":white_check_mark: {} has been nominated by {} as Chancellor!".format(member.mention, ctx.message.author.mention))
+										await ctx.send("Voting has opened. Please type either \"ja\" or \"nein\" into this chat to place your vote")
+										await ctx.send("The game will continue once all players have voted.")
+									else:
+										await ctx.send("You can\'t nominate them: they were President last round!")
+								else:
+									await ctx.send("You can\'t nominate them: they were Chancellor last round!")
 							else:
 								await ctx.send("You can't nominate yourself!")
 						elif nominee == None:
@@ -434,6 +442,8 @@ async def play(ctx, policy_type):
 				
 						president_role = discord.utils.get(bot.temp_ctx.guild.roles, name="President")
 						chancellor_role = discord.utils.get(bot.temp_ctx.guild.roles, name="Chancellor")
+						bot.previous_president = bot.current_president
+						bot.previous_chancellor = bot.current_chancellor
 						await bot.current_president.remove_roles(president_role)
 						await bot.current_chancellor.remove_roles(chancellor_role)
 						bot.current_president = None
@@ -629,6 +639,8 @@ async def lobby(ctx):
 			bot.discarded = []
 			bot.current_president = None
 			bot.current_chancellor = None
+			bot.previous_president = None
+			bot.previous_chancellor = None
 			bot.hitler = None
 			bot.fascists = []
 			bot.liberals = []
