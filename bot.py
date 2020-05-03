@@ -17,23 +17,25 @@ bot.debug_enable = False
 bot.game_in_session = False
 bot.joinable = False
 
-# Define emoji names all up here (to make changing them easier)
-bot.join_emoji = "☑️"
-bot.leave_emoji = "🇽"
-bot.players_emoji = "🎮"
-bot.start_emoji = "🎲"
-
-# Events for aiding in clarity (first) and handling messages / voting (second) - FIX THIS COMMENT LATER!!!!!
+# Prepares bot, and connects it to the server / creates useful objects once it is ready, as well as defining the (all-important) emojis
 @bot.event
 async def on_ready():
 	print(f'{bot.user.name} has connected to Discord!')
 
-	bot.guild = bot.get_guild(464675162243989504) #'DISCORD_GUILD' # Why doesn't this work when it's like these other ones? !!!!!!!!!!
+	bot.guild = bot.get_guild(464675162243989504) #'DISCORD_GUILD' # Why doesn't these work when they're the referenced values from .env? !!!!!!!!!!
 	bot.channel = bot.get_channel(704065785407995965) #'DISCORD_CHANNEL'
 
 	bot.sh_role = bot.guild.get_role(704071282148376617) #'SECRET_HITLER_ROLE'
-	bot.president_role = bot.guild.get_role(704071282148376617) #'PRESIDENT_ROLE'
-	bot.chancellor_role = bot.guild.get_role(704071282148376617) #'CHANCELLOR_ROLE'
+	bot.president_role = bot.guild.get_role(704067481408372866) #'PRESIDENT_ROLE'
+	bot.chancellor_role = bot.guild.get_role(704067735595778128) #'CHANCELLOR_ROLE'
+
+	# Define emoji names all up here (to make changing them easier)
+	bot.join_emoji = "☑️"
+	bot.leave_emoji = "🇽"
+	bot.players_emoji = "🎮"
+	bot.start_emoji = "🎲"
+	bot.ja_emoji = discord.utils.get(bot.guild.emojis, name='ja')
+	bot.nein_emoji = discord.utils.get(bot.guild.emojis, name='nein')
 	
 # Handles any errors that come up during runtime - turn off to help with debugging (this blocks errors from showing up in the console)
 #@bot.event
@@ -117,126 +119,104 @@ async def on_reaction_add(reaction, user): # ADD CHECK FOR "CONFLICTING" EMOJI W
 			
 			elif reaction.emoji == bot.start_emoji:
 				await start_game()
-			
-			else: # All for debug currently
-				print(bot.join_emoji)
-				print(reaction)
-
-
-@bot.event
-async def on_message(message):
-	channel = message.channel # At all necessary? - if so, rewrite to use channel!!!!!
-	if True:
-		if message.content.startswith("Lobby open! Join the lobby"):
-			if message.author == bot.user:
-				reactions = [bot.join_emoji, bot.leave_emoji, bot.players_emoji, bot.start_emoji]
-				for emoji in reactions:
-					await message.add_reaction(emoji)
 		
-		elif message.content.startswith('ja') or message.content.startswith('nein'):
-			if bot.game_in_session or bot.debug_enable:
-				they_have_voted = False
-				if bot.voting_open:
-					if bot.sh_role in message.author.roles:
-						for member in bot.has_voted:
-							if message.author in bot.has_voted:
+		elif "The game will continue once all players have voted." in reaction.message.content:
+			if reaction.emoji == bot.ja_emoji or reaction.emoji == bot.nein_emoji:
+				if bot.game_in_session or bot.debug_enable:
+					they_have_voted = False
+					if bot.voting_open:
+						if bot.sh_role in user.roles:
+							if user in bot.has_voted:
 								they_have_voted = True
 							else:
 								they_have_voted = False
 			
-						if they_have_voted == False or bot.debug_enable:
-							if message.content.startswith('ja'):
-								bot.voted_yes += 1
-								bot.has_voted.append(message.author)
-								await channel.send("Yes recorded, {}!".format(message.author.mention))
-								# await channel.send(file = discord.File(r"D:\Projects\Discord\Bots\Games_Bot\Secret-Hitler-Bot\Images\ja.png"))
-				
-							elif message.content.startswith('nein'):
-								bot.voted_no += 1
-								bot.has_voted.append(message.author)
-								await channel.send("No recorded, {}!".format(message.author.mention))
-								# await channel.send(file = discord.File(r"D:\Projects\Discord\Bots\Games_Bot\Secret-Hitler-Bot\Images\nein.png"))
-							else:
-								return
-			
-							if bot.voted_yes + bot.voted_no >= len(bot.players): # Repeating error that occurs if people spam their votes, causing messages to be repeated once per final vote. Not breaking, just annoying
-								bot.voting_open = False
-							
-								# I'm restating these in this weird, totally inefficient way because I can't figure out why the vote counters aren't resetting
-								voted_yes = bot.voted_yes
-								voted_no = bot.voted_no 
-								bot.voted_yes = 0
-								bot.voted_no = 0
-								bot.has_voted = []
-				
-								await channel.send("Everyone has cast their vote! Voting is now closed.")
-								await channel.send("There were {} \'ja\' votes, and {} \'nein\' votes.".format(voted_yes, voted_no))
-
-								if voted_yes > voted_no:
-									await bot.chancellor_nominee.add_roles(bot.chancellor_role)
-									bot.current_chancellor = bot.chancellor_nominee
-						
-									if bot.current_chancellor == bot.hitler:
-										if bot.fascist_policies_played >= 3:
-											await channel.send("Hitler has been elected Chancellor after 3 fascist policies had been passed! The fascists have won!!!")
-											await end_game()
-											return
-
-									await channel.send("The motion passed! {} is now the Chancellor!".format(bot.current_chancellor.mention))
-									await channel.send("When you are ready, {}, please use the \"!draw\" command to take the top three policies from the deck.".format(bot.current_president.mention))
-									await channel.send("They will be sent to you in a private message. Look out for the one from \"Games Bot\"!")
-					
+							if they_have_voted == False or bot.debug_enable:
+								if reaction.emoji == bot.ja_emoji:
+									bot.voted_yes += 1
+									bot.votes.append('ja')
+									bot.has_voted.append(user)
+									await bot.channel.send("Yes recorded, {}!".format(user.mention))
+								elif reaction.emoji == bot.nein_emoji:
+									bot.voted_no += 1
+									bot.votes.append('ja')
+									bot.has_voted.append(user)
+									await bot.channel.send("No recorded, {}!".format(user.mention))
 								else:
-									bot.current_chancellor = None
-									bot.election_tracker += 1
-									await channel.send("The motion failed! No Chancellor has been elected, and the election tracker has increased by 1 to {} (of 3)!".format(bot.election_tracker))
-									if bot.election_tracker >= 3:
-										# Pass top policy
-										await channel.send("The election tracker has reached 3 failed elections! The top policy card on the deck has been drawn:")
-										await channel.send("A new {} policy has been played!".format(bot.policies[0]))
-										bot.top_three.append(bot.policies[0])
-										play(bot.guild, bot.policies[0]) # VERIFY THAT THIS WORKS WITH "CHANNEL" IN PLACE OF "CTX" - Evaluate function under these conditions. I don't know if it will work.
-										bot.election_tracker = 0
-									
-									# Removes old government and selects a new President (next in the list of players) - NEEDS TO BE OWN FUNCTION, SO THAT THIS "PRESIDENTIAL RESET" CAN BE CALLED ON THE THREE DIFFERENT OCCASIONS IT'S NEEDED!!!!!
-									current_index = bot.players.index(bot.current_president)
-									if current_index == (len(bot.players) - 1):
-										new_index = 0
-									else:
-										new_index = current_index + 1
-				
-									await bot.channel.send("{} and {} have left office.".format(bot.current_president.mention, bot.current_chancellor.mention))
-				
-									bot.previous_president = bot.current_president
-									bot.previous_chancellor = bot.current_chancellor
-									await bot.current_president.remove_roles(bot.president_role)
-									await bot.current_chancellor.remove_roles(bot.chancellor_role)
-									bot.current_president = None
-									bot.current_chancellor = None
-				
-									bot.current_president = bot.players[new_index]
-									await bot.current_president.add_roles(president_role)
-						
-									# These are here just in case, since the single instance of them up in the 'on_message' event doesn't seem to always reset them
+									return
+			
+								if bot.voted_yes + bot.voted_no >= len(bot.players):
+									bot.voting_open = False
+							
+									# I'm restating these in this weird, totally inefficient way because I can't figure out why the vote counters aren't resetting otherwise
+									voted_yes = bot.voted_yes
+									voted_no = bot.voted_no 
 									bot.voted_yes = 0
 									bot.voted_no = 0
+									bot.has_voted = []
+				
+									await bot.channel.send("Everyone has cast their vote! Voting is now closed.")
+									await bot.channel.send("There were {} \'ja\' votes, and {} \'nein\' votes.".format(voted_yes, voted_no))
+
+									if voted_yes > voted_no:
+										await bot.chancellor_nominee.add_roles(bot.chancellor_role)
+										bot.current_chancellor = bot.chancellor_nominee
 						
-									await bot.channel.send("{} is the new President!".format(bot.current_president.mention))
-									await bot.channel.send("When you are ready, {}, please nominate a Chancellor with the \"!nominate @nickname\" command!".format(bot.current_president.mention))
+										if bot.current_chancellor == bot.hitler:
+											if bot.fascist_policies_played >= 3:
+												await bot.channel.send("Hitler has been elected Chancellor after 3 fascist policies had been passed! The fascists have won!!!")
+												await end_game()
+												return
+								
+										await bot.channel.send("The motion passed! {} is now the Chancellor!".format(bot.current_chancellor.mention))
+										await bot.channel.send("When you are ready, {}, please use the \"!draw\" command to take the top three policies from the deck.".format(bot.current_president.mention))
+										await bot.channel.send("They will be sent to you in a private message. Look out for the one from \"Games Bot\"!")
 					
-									bot.current_chancellor = None
-					
-									print(bot.players)
-						
+									else:
+										bot.current_chancellor = None
+										bot.election_tracker += 1
+										await bot.channel.send("The motion failed! No Chancellor has been elected, and the election tracker has increased by 1 to {} (of 3)!".format(bot.election_tracker))
+										if bot.election_tracker >= 3:
+											# Pass top policy
+											await bot.channel.send("The election tracker has reached 3 failed elections! The top policy card on the deck has been drawn:")
+											await bot.channel.send("A new {} policy has been played!".format(bot.policies[0]))
+											bot.top_three.append(bot.policies[0])
+											play(bot.guild, bot.policies[0]) # VERIFY THAT THIS WORKS WITH "CHANNEL" IN PLACE OF "CTX" - Evaluate function under these conditions. I don't know if it will work.
+											bot.election_tracker = 0
+									
+										await new_government()
+										
+							else:
+								await bot.channel.send("You have already voted, {}!".format(message.author.mention))
 						else:
-							await channel.send("You have already voted, {}!".format(message.author.mention))
+							await bot.channel.send("You can\'t vote, {}, because you aren't in the game!".format(message.author.mention))
 					else:
-						await channel.send("You can\'t vote, {}, because you aren't in the game!".format(message.author.mention))
-				else:
-					return
+						return
+@bot.event
+async def on_message(message): # Replace "startswith" with a more verbatum version !!!
+	if True:
+		if message.author == bot.user:
+			if message.content.startswith("Lobby open! Join the lobby"):
+				reactions = [bot.join_emoji, bot.leave_emoji, bot.players_emoji, bot.start_emoji]
+				for emoji in reactions:
+					await message.add_reaction(emoji)
+			
+			elif message.content.startswith("Everyone has cast their vote! Voting is now closed."):
+				for vote in bot.votes: # This is broken... ? Maybe just in debug mode. But it definitely is in debug mode !!!!!!!!!!
+					if vote == 'ja':
+						await message.add_reaction(bot.ja_emoji)
+					elif vote == 'nein':
+						await message.add_reaction(bot.nein_emoji)
+				bot.votes = []
+			
+			elif "The game will continue once all players have voted." in message.content:
+				reactions = [bot.ja_emoji, bot.nein_emoji]
+				for emoji in reactions:
+					await message.add_reaction(emoji)
+			
 	await bot.process_commands(message)
 
-# 'Force quits' the game, just in case it gets stuck (ADD CONFIRMATION PROMPT) - not a pretty game end!!!
+# 'Force quits' the game, just in case it gets stuck (ADD CONFIRMATION PROMPT) - not a pretty game end!!! (MAKE IT WORK WELL)
 @bot.command(pass_context = True, name = 'end_game', help = 'Ends the game')
 async def end_game():
 	if bot.game_in_session:
@@ -276,9 +256,7 @@ async def nominate(ctx, nominee):
 									if member != bot.previous_president:
 										bot.chancellor_nominee = member
 										bot.voting_open = True
-										await bot.channel.send(":white_check_mark: {} has been nominated by {} as Chancellor!".format(member.mention, ctx.message.author.mention))
-										await bot.channel.send("Voting has opened. Please type either \"ja\" or \"nein\" into this chat to place your vote")
-										await bot.channel.send("The game will continue once all players have voted.")
+										await bot.channel.send(":white_check_mark: {} has been nominated by {} as Chancellor! \n Voting has opened. Please react with either {} or {} to place your vote. \n The game will continue once all players have voted.".format(member.mention, ctx.message.author.mention, bot.ja_emoji, bot.nein_emoji))
 									else:
 										await bot.channel.send("You can\'t nominate them: they were President last round!")
 								else:
@@ -370,7 +348,7 @@ async def play(ctx, policy_type):
 					bot.top_three = []
 					fascist_before = bot.fascist_policies_played
 					await ctx.send("You have successfully played a {} card! Please return to the main channel".format(policy_type))
-					await ctx.send("{} played a {} card!".format(bot.ctx.message.author.mention, policy_type)) # Broken (because of context!!!!!)
+					await bot.channel.send("{} played a {} card!".format(ctx.message.author.mention, policy_type))
 					if policy_type == "liberal":
 						bot.liberal_policies_played += 1
 					elif policy_type == "fascist":
@@ -428,35 +406,7 @@ async def play(ctx, policy_type):
 							await bot.channel.send("Use the \"!power\" command to do this.")
 
 					if not bot.pres_power:
-						# Removes old government and selects a new President (next in the list of players)
-						current_index = bot.players.index(bot.current_president)
-						if current_index == (len(bot.players) - 1):
-							new_index = 0
-						else:
-							new_index = current_index + 1
-				
-						await bot.channel.send("{} and {} have left office.".format(bot.current_president.mention, bot.current_chancellor.mention))
-				
-						bot.previous_president = bot.current_president
-						bot.previous_chancellor = bot.current_chancellor
-						await bot.current_president.remove_roles(bot.president_role)
-						await bot.current_chancellor.remove_roles(bot.chancellor_role)
-						bot.current_president = None
-						bot.current_chancellor = None
-				
-						bot.current_president = bot.players[new_index]
-						await bot.current_president.add_roles(president_role)
-						
-						# These are here just in case, since the single instance of them up in the 'on_message' event doesn't seem to always reset them
-						bot.voted_yes = 0
-						bot.voted_no = 0
-						
-						await bot.channel.send("{} is the new President!".format(bot.current_president.mention))
-						await bot.channel.send("When you are ready, {}, please nominate a Chancellor with the \"!nominate @nickname\" command!".format(bot.current_president.mention))
-					
-						bot.current_chancellor = None
-					
-						print(bot.players)
+						await new_government()
 				
 				else:
 					await ctx.send("You didn\'t get passed one of those! Try again.")
@@ -495,6 +445,37 @@ def display_board():
 		fascist_address = os.path.join(r"D:\Projects\Discord\Bots\Games_Bot\Secret-Hitler-Bot\Images", fascist_address)
 
 	return liberal_address, fascist_address
+
+# Removes old government and selects a new President (next in the list of players) - NEEDS TO BE OWN FUNCTION, SO THAT THIS "PRESIDENTIAL RESET" CAN BE CALLED ON THE THREE DIFFERENT OCCASIONS IT'S NEEDED!!!!!
+async def new_government():
+	current_index = bot.players.index(bot.current_president)
+	if current_index == (len(bot.players) - 1):
+		new_index = 0
+	else:
+		new_index = current_index + 1
+				
+	await bot.channel.send("{} and {} have left office.".format(bot.current_president.mention, bot.current_chancellor.mention))
+				
+	bot.previous_president = bot.current_president
+	bot.previous_chancellor = bot.current_chancellor
+	await bot.current_president.remove_roles(bot.president_role)
+	await bot.current_chancellor.remove_roles(bot.chancellor_role)
+	bot.current_president = None
+	bot.current_chancellor = None
+				
+	bot.current_president = bot.players[new_index]
+	await bot.current_president.add_roles(bot.president_role)
+						
+	# These are here just in case, since the single instance of them up in the 'on_message' event doesn't seem to always reset them
+	bot.voted_yes = 0
+	bot.voted_no = 0
+						
+	await bot.channel.send("{} is the new President!".format(bot.current_president.mention))
+	await bot.channel.send("When you are ready, {}, please nominate a Chancellor with the \"!nominate @nickname\" command!".format(bot.current_president.mention))
+					
+	bot.current_chancellor = None
+					
+	print(bot.players)
 	
 # Presidential powers --------------------------------------------------
 
@@ -624,6 +605,7 @@ async def lobby(ctx):
 			bot.voting_open = False
 			bot.voted_yes = 0
 			bot.voted_no = 0
+			bot.votes = []
 			bot.has_voted = []
 			bot.top_three = []
 			bot.discarded = []
@@ -656,13 +638,17 @@ async def start_game():
 			
 		# Rebuild player list now that changes have been finalized
 		bot.players = []
+		
+		# Create temporory list for assigning roles
+		unassigned_players = []
+		
 		for member in bot.guild.members:
 			if bot.sh_role in member.roles: 
 				bot.players.append(member)
-			
-		# Create temporory list for assigning roles
-		unassigned_players = bot.players
-			
+				unassigned_players.append(member)
+		
+		print(unassigned_players) # DEBUG
+		
 		# Check for correct player count
 		if not bot.debug_enable:
 			if len(unassigned_players) < 5 or len(unassigned_players) > 10:
@@ -682,10 +668,10 @@ async def start_game():
 		lib_address, fasc_address = display_board()
 		await bot.channel.send(file = discord.File(lib_address))
 		await bot.channel.send(file = discord.File(fasc_address))
-			
+		
 		# Decides what distribution of Fascists, Liberals, and Hitler to use based on the player count, and assigns them to people randomly
-		# For 5 or 6 players, assign one Fascist + Hitler
-		if len(unassigned_players) == 5 or len(unassigned_players) == 6:
+		# For 9 or 10 players, assign three Fascists + Hitler
+		if len(unassigned_players) == 9 or len(unassigned_players) == 10:
 			selection = randint(0, len(unassigned_players) - 1)
 			member = unassigned_players[selection]
 			bot.hitler = member
@@ -693,18 +679,20 @@ async def start_game():
 			await member.dm_channel.send(f'You are Hitler!')
 			await member.dm_channel.send(file = discord.File(r"D:\Projects\Discord\Bots\Games_Bot\Secret-Hitler-Bot\Images\hitler.png"))
 			print("{} is Hitler".format(member.mention))
-			unassigned_players.remove(member)
-		
-			selection = randint(0, len(unassigned_players) - 1)
-			member = unassigned_players[selection]
-			await member.create_dm()
-			await member.dm_channel.send(f'You are a fascist!')
-			await member.dm_channel.send(file = discord.File(r"D:\Projects\Discord\Bots\Games_Bot\Secret-Hitler-Bot\Images\fascist.png"))
-			await member.dm_channel.send("{} is Hitler".format(bot.hitler.mention))
 			bot.fascists.append(member)
-			print("{} is a Fascist".format(member.mention))
 			unassigned_players.remove(member)
-			
+	
+			for i in range (0, 3):
+				selection = randint(0, len(unassigned_players) - 1)
+				member = unassigned_players[selection]
+				await member.create_dm()
+				await member.dm_channel.send(f'You are a fascist!')
+				await member.dm_channel.send(file = discord.File(r"D:\Projects\Discord\Bots\Games_Bot\Secret-Hitler-Bot\Images\fascist.png"))
+				await member.dm_channel.send("{} is Hitler".format(bot.hitler.mention))
+				bot.fascists.append(member)
+				print("{} is a Fascist".format(member.mention))
+				unassigned_players.remove(member)
+		
 		# For 7 or 8 players, assign two Fascists + Hitler
 		elif len(unassigned_players) == 7 or len(unassigned_players) == 8:
 			selection = randint(0, len(unassigned_players) - 1)
@@ -714,6 +702,7 @@ async def start_game():
 			await member.dm_channel.send(f'You are Hitler!')
 			await member.dm_channel.send(file = discord.File(r"D:\Projects\Discord\Bots\Games_Bot\Secret-Hitler-Bot\Images\hitler.png"))
 			print("{} is Hitler".format(member.mention))
+			bot.fascists.append(member)
 			unassigned_players.remove(member)
 	
 			for i in range (0, 2):
@@ -727,7 +716,7 @@ async def start_game():
 				print("{} is a Fascist".format(member.mention))
 				unassigned_players.remove(member)
 	
-		# For 9 or 10 players, assign three Fascists + Hitler
+		# For 5 or 6 players, assign one Fascist + Hitler
 		else:
 			selection = randint(0, len(unassigned_players) - 1)
 			member = unassigned_players[selection]
@@ -736,18 +725,20 @@ async def start_game():
 			await member.dm_channel.send(f'You are Hitler!')
 			await member.dm_channel.send(file = discord.File(r"D:\Projects\Discord\Bots\Games_Bot\Secret-Hitler-Bot\Images\hitler.png"))
 			print("{} is Hitler".format(member.mention))
+			bot.fascists.append(member)
 			unassigned_players.remove(member)
-	
-			for i in range (0, 3):
-				selection = randint(0, len(unassigned_players) - 1)
-				member = unassigned_players[selection]
-				await member.create_dm()
-				await member.dm_channel.send(f'You are a fascist!')
-				await member.dm_channel.send(file = discord.File(r"D:\Projects\Discord\Bots\Games_Bot\Secret-Hitler-Bot\Images\fascist.png"))
-				await member.dm_channel.send("{} is Hitler".format(bot.hitler.mention))
-				bot.fascists.append(member)
-				print("{} is a Fascist".format(member.mention))
-				unassigned_players.remove(member)
+		
+			selection = randint(0, len(unassigned_players) - 1)
+			member = unassigned_players[selection]
+			await member.create_dm()
+			await member.dm_channel.send(f'You are a fascist!')
+			await member.dm_channel.send(file = discord.File(r"D:\Projects\Discord\Bots\Games_Bot\Secret-Hitler-Bot\Images\fascist.png"))
+			await member.dm_channel.send("{} is Hitler".format(bot.hitler.mention))
+			bot.fascists.append(member)
+			print("{} is a Fascist".format(member.mention))
+			unassigned_players.remove(member)
+			
+			await bot.hitler.dm_channel.send("Your Fascist ally is {}.".format(bot.fascists[0]))
 			
 		# For everyone that isn't a Fascist or Hitler, make them a Liberal
 		for member in unassigned_players:
@@ -756,31 +747,26 @@ async def start_game():
 			await member.dm_channel.send(file = discord.File(r"D:\Projects\Discord\Bots\Games_Bot\Secret-Hitler-Bot\Images\liberal.png"))
 			bot.liberals.append(member)
 			print("{} is a Liberal".format(member.mention))
-			unassigned_players.remove(member)
 		
-		if len(bot.fascists) > 1:
+		# Reset this counter, just in case. Probably unnecessary
+		unassigned_players = []
+		
+		if len(bot.fascists) > 2:
 			for member in bot.fascists:
-				temp_fascists = bot.fascists
-				temp_fascists.remove(member)
-				await member.dm_channel.send("Your fellow fascists are: ")
-				for player in temp_fascists:
-					await player.dm_channel.send("{}".format(member))
-					
-		if len(bot.players) < 7:
-			member = bot.hitler
-			temp_fascists = bot.fascists
-			await member.dm_channel.send("Your fellow fascists are: ")
-			for player in temp_fascists:
-				await member.dm_channel.send("{}".format(player))
-			
-		# Randomly select a President from the pool of players (MIGHT BE BETTER AS OWN FUNCTION?)
+				if member != bot.hitler:
+					temp_fascists = bot.fascists
+					temp_fascists.remove(member)
+					temp_fascists.remove(bot.hitler)
+					await member.dm_channel.send("Your fellow fascists are: ")
+					for player in temp_fascists:
+						await member.dm_channel.send("{}".format(player))
+
+		# Randomly select a President from the pool of players (MIGHT BE BETTER AS OWN FUNCTION?) BROKEN RIGHT NOWWWWWW?????
 		member = bot.players[randint(0, (len(bot.players) - 1))]
 		await member.add_roles(bot.president_role)
 		bot.current_president = member
 		await bot.channel.send("Our first president is... {}!".format(member.mention))
 		await bot.channel.send("When you are ready, {}, please nominate a Chancellor with the \"!nominate @nickname\" command!".format(member.mention))
-			
-		print(bot.players) #This is still broken right here. Figuring out why is important. Then you can delete these weird print statements
 			
 	# ADD VETO POWERS!!!!!
 	# ADD ARGUMENT EXPLANATION FOR PRESIDENTIAL POWER COMMAND
