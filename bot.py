@@ -10,20 +10,33 @@ load_dotenv()
 TOKEN = os.getenv('DISCORD_TOKEN')
 
 bot = commands.Bot(command_prefix='!')
-bot.guild = discord.utils.get(bot.guilds, name="games")
 
-# Enable this (set to 'True') to turn off safeguards and most order/role checks so as to allow for much, much easier debugging
+# Enable this (set to 'True') to turn off safeguards and most order/role checks so as to allow for easier debugging
 bot.debug_enable = False
 
 bot.game_in_session = False
 bot.joinable = False
 
-# Events for aiding in clarity (first) and handling messages / voting (second)
+# Define emoji names all up here (to make changing them easier) !!!!!!!!!!
 
+
+# Events for aiding in clarity (first) and handling messages / voting (second) - FIX THIS COMMENT LATER!!!!!
 @bot.event
 async def on_ready():
 	print(f'{bot.user.name} has connected to Discord!')
 
+	bot.guild = bot.get_guild(464675162243989504)
+	bot.channel = bot.get_channel(704065785407995965)
+	
+	print(bot.guild)
+	print(bot.channel)
+	
+	bot.sh_role = bot.guild.get_role(704071282148376617)
+	bot.president_role = bot.guild.get_role(704067481408372866)
+	bot.chancellor_role = bot.guild.get_role(704067735595778128)
+	
+
+	
 # Handles any errors that come up during runtime - turn off to help with debugging (this blocks errors from showing up in the console)
 #@bot.event
 async def on_command_error(ctx, error):
@@ -63,13 +76,41 @@ async def on_command_error(ctx, error):
 
 def debug_list(ctx):
 	bot.players = []
-	role = discord.utils.get(ctx.message.guild.roles, name="Secret Hitler")
 	for member in ctx.message.guild.members:
-		if role in member.roles: 
+		if bot.sh_role in member.roles: 
 			bot.players.append(member)
 
 # Commands for gameplay ----------------------------------------------------------------------------------------------------
 
+@bot.event
+async def on_reaction_add(reaction, user): # Add bot vs user check, so I can have it add them by default
+	if "Check which players are in the lobby" in reaction.message.content:
+		if reaction.emoji.name == "join" or reaction.emoji.name == "leave":
+			if not bot.game_in_session:
+				if bot.joinable:
+					if reaction.emoji.name == "join":
+						if bot.sh_role in user.roles:
+							await bot.channel.send("You\'re already part of the game!")
+						else:
+							await user.add_roles(bot.sh_role)
+							await bot.channel.send(":white_check_mark: {} is now in the game!".format(user.mention))
+							bot.players.append(user)
+					
+					elif reaction.emoji.name == "leave":
+						if bot.sh_role in user.roles:
+							await user.remove_roles(bot.sh_role)
+							await user.remove_roles(bot.chancellor_role)
+							await user.remove_roles(bot.president_role)
+							await bot.channel.send(":white_check_mark: {} has now left the game!".format(user.mention))
+							bot.players.remove(user)
+						else:
+							await bot.channel.send("You aren\'t part of the game yet!")		
+				else:
+					await bot.channel.send("A game has yet to begin / is already in progress!")
+			else:
+				await bot.channel.send("A game is currently underway!")
+
+		
 @bot.event
 async def on_message(message):
 	channel = message.channel
@@ -77,9 +118,8 @@ async def on_message(message):
 		if message.content.startswith('ja') or message.content.startswith('nein'):
 			if bot.game_in_session or bot.debug_enable:
 				they_have_voted = False
-				role = discord.utils.get(message.guild.roles, name="Secret Hitler")
 				if bot.voting_open:
-					if role in message.author.roles:
+					if bot.sh_role in message.author.roles:
 						for member in bot.has_voted:
 							if message.author in bot.has_voted:
 								they_have_voted = True
@@ -115,8 +155,7 @@ async def on_message(message):
 								await channel.send("There were {} \'ja\' votes, and {} \'nein\' votes.".format(voted_yes, voted_no))
 
 								if voted_yes > voted_no:
-									role = discord.utils.get(message.guild.roles, name="Chancellor")
-									await bot.chancellor_nominee.add_roles(role)
+									await bot.chancellor_nominee.add_roles(bot.chancellor_role)
 									bot.current_chancellor = bot.chancellor_nominee
 						
 									if bot.current_chancellor == bot.hitler:
@@ -150,12 +189,10 @@ async def on_message(message):
 				
 									await bot.temp_ctx.send("{} and {} have left office.".format(bot.current_president.mention, bot.current_chancellor.mention))
 				
-									president_role = discord.utils.get(bot.temp_ctx.guild.roles, name="President")
-									chancellor_role = discord.utils.get(bot.temp_ctx.guild.roles, name="Chancellor")
 									bot.previous_president = bot.current_president
 									bot.previous_chancellor = bot.current_chancellor
-									await bot.current_president.remove_roles(president_role)
-									await bot.current_chancellor.remove_roles(chancellor_role)
+									await bot.current_president.remove_roles(bot.president_role)
+									await bot.current_chancellor.remove_roles(bot.chancellor_role)
 									bot.current_president = None
 									bot.current_chancellor = None
 				
@@ -181,45 +218,6 @@ async def on_message(message):
 					return
 	await bot.process_commands(message)
 
-#Allows a player to join a game that isn't underway	
-@bot.command(pass_context = True, name = 'join', help = 'Join the game')
-async def join(ctx):
-	if ctx.guild:
-		if not bot.game_in_session:
-			if bot.joinable:
-				role = discord.utils.get(ctx.guild.roles, name="Secret Hitler")
-				if role in ctx.author.roles:
-					await ctx.send(f'You\'re already part of the game!')
-				else:
-					await ctx.author.add_roles(role)
-					await ctx.send(":white_check_mark: {} is now in the game!".format(ctx.message.author.mention))
-					bot.players.append(ctx.author)
-			else:
-				await ctx.send("A game has yet to begin / is already in progress!")
-	else:
-		await ctx.send("You can\'t use that here!")
-
-# Allows a player to leave a game that isn't underway
-@bot.command(pass_context = True, name = 'leave', help = 'Leave the game')		
-async def leave(ctx):
-	if ctx.guild:
-		if not bot.game_in_session:
-			game_role = discord.utils.get(ctx.guild.roles, name="Secret Hitler")
-			chancellor_role = discord.utils.get(ctx.guild.roles, name="Chancellor")
-			president_role = discord.utils.get(ctx.guild.roles, name="President")
-			if game_role in ctx.author.roles:
-				await ctx.author.remove_roles(game_role)
-				await ctx.author.remove_roles(chancellor_role)
-				await ctx.author.remove_roles(president_role)
-				await ctx.send(":white_check_mark: {} has now left the game!".format(ctx.message.author.mention))
-				bot.players.remove(ctx.author)
-			else:
-				await ctx.send(f'You aren\'t part of the game yet!')
-		else:
-			await ctx.send("A game is currently underway!")
-	else:
-		await ctx.send("You can\'t use that here!")
-
 # 'Force quits' the game, just in case it gets stuck (ADD CONFIRMATION PROMPT)
 @bot.command(pass_context = True, name = 'end_game', help = 'Ends the game')
 async def end_game(ctx):
@@ -227,10 +225,7 @@ async def end_game(ctx):
 		if bot.game_in_session:
 			bot.game_in_session = False
 			for member in bot.players:
-				sh_role = discord.utils.get(ctx.guild.roles, name="Secret Hitler")
-				president_role = discord.utils.get(ctx.guild.roles, name="President")
-				chancellor_role = discord.utils.get(ctx.guild.roles, name="Chancellor")
-				member.remove_roles(sh_role, president_role, chancellor_role)
+				member.remove_roles(bot.sh_role, bot.president_role, bot.chancellor_role)
 				await ctx.send("{} has left the game".format(member.mention))
 			await ctx.send("Game ended.")
 			
@@ -266,9 +261,8 @@ async def nominate(ctx, nominee):
 		if bot.game_in_session or bot.debug_enable:
 			if not bot.pres_power:
 				# Checks if there is already a Chancellor
-				role = discord.utils.get(ctx.guild.roles, name="Chancellor")
 				for member in bot.players:
-					if role in member.roles:
+					if bot.chancellor_role in member.roles:
 						bot.chancellor_nominee = None # MAKE THIS WORK - should be "member", but it always throws the same error
 			
 				if True: #bot.chancellor_nominee == None or bot.debug_enable: # FIX THIS LATER !!!!!!!!!!
@@ -441,12 +435,10 @@ async def play(ctx, policy_type):
 				
 						await bot.temp_ctx.send("{} and {} have left office.".format(bot.current_president.mention, bot.current_chancellor.mention))
 				
-						president_role = discord.utils.get(bot.temp_ctx.guild.roles, name="President")
-						chancellor_role = discord.utils.get(bot.temp_ctx.guild.roles, name="Chancellor")
 						bot.previous_president = bot.current_president
 						bot.previous_chancellor = bot.current_chancellor
-						await bot.current_president.remove_roles(president_role)
-						await bot.current_chancellor.remove_roles(chancellor_role)
+						await bot.current_president.remove_roles(bot.president_role)
+						await bot.current_chancellor.remove_roles(bot.chancellor_role)
 						bot.current_president = None
 						bot.current_chancellor = None
 				
@@ -551,10 +543,7 @@ async def power(ctx, target = None):
 			
 			elif bot.fascist_policies_played == 4 or bot.fascist_policies_played == 5:
 				# Kill a player
-				sh_role = discord.utils.get(ctx.guild.roles, name="Secret Hitler") # Make these three roles "bot." variables, so they can be used globally and not re-declared every single time
-				presidential_role = discord.utils.get(ctx.guild.roles, name="President")
-				chancellor_role = discord.utils.get(ctx.guild.roles, name="Chancellor")
-				target.remove_roles(sh_role, presidental_role, chancellor_role)
+				target.remove_roles(bot.sh_role, bot.presidental_role, bot.chancellor_role)
 				bot.players.remove(target)
 				await ctx.send("{} has been killed!".format(target.mention))
 				if target == bot.hitler:
@@ -572,10 +561,8 @@ async def power(ctx, target = None):
 
 			await ctx.send("{} and {} have left office.".format(bot.current_president.mention, bot.current_chancellor.mention))
 
-			president_role = discord.utils.get(ctx.guild.roles, name="President")
-			chancellor_role = discord.utils.get(ctx.guild.roles, name="Chancellor")
-			await bot.current_president.remove_roles(president_role)
-			await bot.current_chancellor.remove_roles(chancellor_role)
+			await bot.current_president.remove_roles(bot.president_role)
+			await bot.current_chancellor.remove_roles(bot.chancellor_role)
 			bot.current_president = None
 			bot.current_chancellor = None
 			
@@ -650,11 +637,7 @@ async def lobby(ctx):
 			bot.election_tracker = 0
 			bot.temp_ctx = None # Replace with bot.guild at some point, and replace generic "ctx.guild" checks with specific "'games'" channel checks, probably using 'bot.guild' ("if ctx.guild = bot.guild"?)
 	
-			await ctx.send("Lobby open!")
-			await ctx.send("Join the lobby with the \"!join\" command!")
-			await ctx.send("Leave the lobby with the \"!leave\" command!")
-			await ctx.send("Check which players are in the lobby with the \"!player_count\" command!")
-			await ctx.send("When all players have joined the lobby, start the game with the \"!start_game\" command!")
+			await ctx.send("Lobby open! Join the lobby with <:join:706588613395087371>. \n Leave the lobby with <:leave:706588575113936978>. \n Check which players are in the lobby with :video_game: \n When all players have joined the lobby, start the game with :game_die:!")
 		
 		else:
 			await ctx.send("You can\'t open the lobby while a game is running!")
@@ -674,9 +657,8 @@ async def start_game(ctx):
 			
 			# Rebuild player list now that changes have been finalized
 			bot.players = []
-			role = discord.utils.get(ctx.message.guild.roles, name="Secret Hitler")
 			for member in ctx.message.guild.members:
-				if role in member.roles: 
+				if bot.sh_role in member.roles: 
 					bot.players.append(member)
 			
 			# Create temporory list for assigning roles
@@ -793,9 +775,8 @@ async def start_game(ctx):
 					await member.dm_channel.send("{}".format(player))
 			
 			# Randomly select a President from the pool of players (MIGHT BE BETTER AS OWN FUNCTION?)
-			role = discord.utils.get(ctx.guild.roles, name="President")
 			member = bot.players[randint(0, (len(bot.players) - 1))]
-			await member.add_roles(role)
+			await member.add_roles(bot.president_role)
 			bot.current_president = member
 			await ctx.send("Our first president is... {}!".format(member.mention))
 			await ctx.send("When you are ready, {}, please nominate a Chancellor with the \"!nominate @nickname\" command!".format(member.mention))
