@@ -25,7 +25,7 @@ async def on_ready():
 	print(f'{bot.user.name} has connected to Discord!')
 
 # Handles any errors that come up during runtime - turn off to help with debugging (this blocks errors from showing up in the console)
-@bot.event
+#@bot.event
 async def on_command_error(ctx, error):
 	if hasattr(ctx.command, 'on_error'):
 		return
@@ -91,13 +91,13 @@ async def on_message(message):
 								bot.voted_yes += 1
 								bot.has_voted.append(message.author)
 								await channel.send("Yes recorded, {}!".format(message.author.mention))
-								await channel.send(file = discord.File(r"D:\Projects\Discord\Bots\Games_Bot\Secret-Hitler-Bot\Images\ja.png"))
+								# await channel.send(file = discord.File(r"D:\Projects\Discord\Bots\Games_Bot\Secret-Hitler-Bot\Images\ja.png"))
 				
 							elif message.content.startswith('nein'):
 								bot.voted_no += 1
 								bot.has_voted.append(message.author)
 								await channel.send("No recorded, {}!".format(message.author.mention))
-								await channel.send(file = discord.File(r"D:\Projects\Discord\Bots\Games_Bot\Secret-Hitler-Bot\Images\nein.png"))
+								# await channel.send(file = discord.File(r"D:\Projects\Discord\Bots\Games_Bot\Secret-Hitler-Bot\Images\nein.png"))
 							else:
 								return
 			
@@ -109,6 +109,7 @@ async def on_message(message):
 								voted_no = bot.voted_no 
 								bot.voted_yes = 0
 								bot.voted_no = 0
+								bot.has_voted = []
 				
 								await channel.send("Everyone has cast their vote! Voting is now closed.")
 								await channel.send("There were {} \'ja\' votes, and {} \'nein\' votes.".format(voted_yes, voted_no))
@@ -177,7 +178,7 @@ async def on_message(message):
 					else:
 						await channel.send("You can\'t vote, {}, because you aren't in the game!".format(message.author.mention))
 				else:
-					await channel.send("Voting isn\'t open yet!")
+					return
 	await bot.process_commands(message)
 
 #Allows a player to join a game that isn't underway	
@@ -229,7 +230,7 @@ async def end_game(ctx):
 				sh_role = discord.utils.get(ctx.guild.roles, name="Secret Hitler")
 				president_role = discord.utils.get(ctx.guild.roles, name="President")
 				chancellor_role = discord.utils.get(ctx.guild.roles, name="Chancellor")
-				remove_roles(sh_role, presidental_role, chancellor_role)
+				member.remove_roles(sh_role, president_role, chancellor_role)
 				await ctx.send("{} has left the game".format(member.mention))
 			await ctx.send("Game ended.")
 			
@@ -243,7 +244,7 @@ async def end_game(ctx):
 	else:
 		await ctx.send("You can\'t use that here!")
 
-@bot.command(pass_context = True, name = 'player_count', help = 'Reports players in game / lobby')
+#@bot.command(pass_context = True, name = 'player_count', help = 'Reports players in game / lobby')
 async def player_count(ctx):
 	if ctx.guild:
 		if len(bot.players) == 0:
@@ -270,7 +271,7 @@ async def nominate(ctx, nominee):
 					if role in member.roles:
 						bot.chancellor_nominee = None # MAKE THIS WORK - should be "member", but it always throws the same error
 			
-				if bot.chancellor_nominee == None or bot.debug_enable:
+				if True: #bot.chancellor_nominee == None or bot.debug_enable: # FIX THIS LATER !!!!!!!!!!
 					for member in bot.players:
 						if member.mention == nominee:
 							if ctx.message.author != member or bot.debug_enable:
@@ -373,7 +374,7 @@ async def play(ctx, policy_type):
 					bot.top_three = []
 					fascist_before = bot.fascist_policies_played
 					await ctx.send("You have successfully played a {} card! Please return to the main channel".format(policy_type))
-					await bot.temp_ctx.send("{} played a {} card!".format(bot.temp_ctx.message.author.mention, policy_type))
+					await bot.ctx.send("{} played a {} card!".format(bot.ctx.message.author.mention, policy_type)) # Broken (because of context!!!!!)
 					if policy_type == "liberal":
 						bot.liberal_policies_played += 1
 					elif policy_type == "fascist":
@@ -774,6 +775,7 @@ async def start_game(ctx):
 				await member.dm_channel.send(file = discord.File(r"D:\Projects\Discord\Bots\Games_Bot\Secret-Hitler-Bot\Images\liberal.png"))
 				bot.liberals.append(member)
 				print("{} is a Liberal".format(member.mention))
+				unassigned_players.remove(member)
 			
 			if len(bot.fascists) > 1:
 				for member in bot.fascists:
@@ -782,6 +784,13 @@ async def start_game(ctx):
 					await member.dm_channel.send("Your fellow fascists are: ")
 					for player in temp_fascists:
 						await player.dm_channel.send("{}".format(member))
+						
+			if len(bot.players) < 7:
+				member = bot.hitler
+				temp_fascists = bot.fascists
+				await member.dm_channel.send("Your fellow fascists are: ")
+				for player in temp_fascists:
+					await member.dm_channel.send("{}".format(player))
 			
 			# Randomly select a President from the pool of players (MIGHT BE BETTER AS OWN FUNCTION?)
 			role = discord.utils.get(ctx.guild.roles, name="President")
