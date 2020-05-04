@@ -12,7 +12,7 @@ TOKEN = os.getenv('DISCORD_TOKEN')
 bot = commands.Bot(command_prefix='!')
 
 # Enable this (set to 'True') to turn off safeguards and most order/role checks so as to allow for easier debugging
-bot.debug_enable = False
+bot.debug_enable = True
 
 bot.game_in_session = False
 bot.joinable = False
@@ -139,7 +139,7 @@ async def on_reaction_add(reaction, user): # ADD CHECK FOR "CONFLICTING" EMOJI W
 									await bot.channel.send("Yes recorded, {}!".format(user.mention))
 								elif reaction.emoji == bot.nein_emoji:
 									bot.voted_no += 1
-									bot.votes.append('ja')
+									bot.votes.append('nein')
 									bot.has_voted.append(user)
 									await bot.channel.send("No recorded, {}!".format(user.mention))
 								else:
@@ -193,26 +193,25 @@ async def on_reaction_add(reaction, user): # ADD CHECK FOR "CONFLICTING" EMOJI W
 					else:
 						return
 @bot.event
-async def on_message(message): # Replace "startswith" with a more verbatum version !!!
-	if True:
-		if message.author == bot.user:
-			if message.content.startswith("Lobby open! Join the lobby"):
-				reactions = [bot.join_emoji, bot.leave_emoji, bot.players_emoji, bot.start_emoji]
-				for emoji in reactions:
-					await message.add_reaction(emoji)
+async def on_message(message):
+	if message.author == bot.user:
+		if "Lobby open! Join the lobby" in message.content:
+			reactions = [bot.join_emoji, bot.leave_emoji, bot.players_emoji, bot.start_emoji]
+			for emoji in reactions:
+				await message.add_reaction(emoji)
 			
-			elif message.content.startswith("Everyone has cast their vote! Voting is now closed."):
-				for vote in bot.votes: # This is broken... ? Maybe just in debug mode. But it definitely is in debug mode !!!!!!!!!!
-					if vote == 'ja':
-						await message.add_reaction(bot.ja_emoji)
-					elif vote == 'nein':
-						await message.add_reaction(bot.nein_emoji)
-				bot.votes = []
+#		elif "Everyone has cast their vote! Voting is now closed." in message.content:
+#			for vote in bot.votes: # This is broken... ? Maybe just in debug mode. But it definitely is in debug mode !!!!!!!!!!
+#				if vote == 'ja':
+#					await message.add_reaction(bot.ja_emoji)
+#				elif vote == 'nein':
+#					await message.add_reaction(bot.nein_emoji)
+#			bot.votes = []
 			
-			elif "The game will continue once all players have voted." in message.content:
-				reactions = [bot.ja_emoji, bot.nein_emoji]
-				for emoji in reactions:
-					await message.add_reaction(emoji)
+		elif "The game will continue once all players have voted." in message.content:
+			reactions = [bot.ja_emoji, bot.nein_emoji]
+			for emoji in reactions:
+				await message.add_reaction(emoji)
 			
 	await bot.process_commands(message)
 
