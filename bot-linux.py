@@ -173,7 +173,6 @@ async def on_reaction_add(reaction, user): # ADD CHECK FOR "CONFLICTING" EMOJI W
 										await bot.channel.send("They will be sent to you in a private message. Look out for the one from \"Games Bot\"!")
 					
 									else:
-										bot.current_chancellor = None
 										bot.election_tracker += 1
 										await bot.channel.send("The motion failed! No Chancellor has been elected, and the election tracker has increased by 1 to {} (of 3)!".format(bot.election_tracker))
 										if bot.election_tracker >= 3:
@@ -183,7 +182,8 @@ async def on_reaction_add(reaction, user): # ADD CHECK FOR "CONFLICTING" EMOJI W
 											bot.top_three.append(bot.policies[0])
 											play(bot.guild, bot.policies[0]) # VERIFY THAT THIS WORKS WITH "CHANNEL" IN PLACE OF "CTX" - Evaluate function under these conditions. I don't know if it will work.
 											bot.election_tracker = 0
-									
+										
+										bot.has_election_increased = True
 										await new_government()
 										
 							else:
@@ -321,8 +321,8 @@ async def discard(ctx, discard):
 		if discard in bot.top_three:
 			bot.top_three.remove(discard)
 			bot.discarded.append(discard)
-			await chancellor.dm_channel.send('The President, {}, has passed you these policy cards:'.format(member.mention))
-			await member.dm_channel.send('You have sent the Chancellor, {}, these policy cards:'.format(chancellor.mention))
+			await chancellor.dm_channel.send('The President has passed you these policy cards:')
+			await member.dm_channel.send('You have sent the Chancellor these policy cards:')
 			for card in range(0,2):
 				await chancellor.dm_channel.send(bot.top_three[card])
 				await member.dm_channel.send(bot.top_three[card])
@@ -418,30 +418,24 @@ async def play(ctx, policy_type):
 
 # Displays the current game boards
 def display_board():
-	liberal_board = ['Liberal0.png', 'Liberal1.png', 'Liberal2.png', 'Liberal3.png', 'Liberal4.png', 'Liberal5.png']
-	fascist_board_56 = ['Fascist(5,6)0.png', 'Fascist(5,6)1.png', 'Fascist(5,6)2.png', 'Fascist3.png', 'Fascist4.png', 'Fascist5.png', 'Fascist6.png']
-	fascist_board_78 = ['Fascist(7,8)0.png', 'Fascist(7,8,9,10)1.png', 'Fascist(7,8,9,10)2.png', 'Fascist3.png', 'Fascist4.png', 'Fascist5.png', 'Fascist6.png']
-	fascist_board_910 = ['Fascist(9,10)0.png', 'Fascist(7,8,9,10)1.png', 'Fascist(7,8,9,10)2.png', 'Fascist3.png', 'Fascist4.png', 'Fascist5.png', 'Fascist6.png']
+	liberal_board = ['/home/pi/Secret-Hitler-Bot/Images/Liberal0.png', '/home/pi/Secret-Hitler-Bot/Images/Liberal1.png', '/home/pi/Secret-Hitler-Bot/Images/Liberal2.png', '/home/pi/Secret-Hitler-Bot/Images/Liberal3.png', '/home/pi/Secret-Hitler-Bot/Images/Liberal4.png', '/home/pi/Secret-Hitler-Bot/Images/Liberal5.png']
+	fascist_board_56 = ['/home/pi/Secret-Hitler-Bot/Images/Fascist(5,6)0.png', '/home/pi/Secret-Hitler-Bot/Images/Fascist(5,6)1.png', '/home/pi/Secret-Hitler-Bot/Images/Fascist(5,6)2.png', '/home/pi/Secret-Hitler-Bot/Images/Fascist3.png', '/home/pi/Secret-Hitler-Bot/Images/Fascist4.png', '/home/pi/Secret-Hitler-Bot/Images/Fascist5.png', '/home/pi/Secret-Hitler-Bot/Images/Fascist6.png']
+	fascist_board_78 = ['/home/pi/Secret-Hitler-Bot/Images/Fascist(7,8)0.png', '/home/pi/Secret-Hitler-Bot/Images/Fascist(7,8,9,10)1.png', '/home/pi/Secret-Hitler-Bot/Images/Fascist(7,8,9,10)2.png', '/home/pi/Secret-Hitler-Bot/Images/Fascist3.png', '/home/pi/Secret-Hitler-Bot/Images/Fascist4.png', '/home/pi/Secret-Hitler-Bot/Images/Fascist5.png', '/home/pi/Secret-Hitler-Bot/Images/Fascist6.png']
+	fascist_board_910 = ['/home/pi/Secret-Hitler-Bot/Images/Fascist(9,10)0.png', '/home/pi/Secret-Hitler-Bot/Images/Fascist(7,8,9,10)1.png', '/home/pi/Secret-Hitler-Bot/Images/Fascist(7,8,9,10)2.png', '/home/pi/Secret-Hitler-Bot/Images/Fascist3.png', '/home/pi/Secret-Hitler-Bot/Images/Fascist4.png', '/home/pi/Secret-Hitler-Bot/Images/Fascist5.png', '/home/pi/Secret-Hitler-Bot/Images/Fascist6.png']
 	if len(bot.players) < 7:
 		liberal_address = liberal_board[bot.liberal_policies_played]
-		liberal_address = os.path.join(r"D:\Projects\Discord\Bots\Games_Bot\Secret-Hitler-Bot\Images", liberal_address)
 		
 		fascist_address = fascist_board_56[bot.fascist_policies_played]
-		fascist_address = os.path.join(r"D:\Projects\Discord\Bots\Games_Bot\Secret-Hitler-Bot\Images", fascist_address)
 		
 	elif len(bot.players) < 9:
 		liberal_address = liberal_board[bot.liberal_policies_played]
-		liberal_address = os.path.join(r"D:\Projects\Discord\Bots\Games_Bot\Secret-Hitler-Bot\Images", liberal_address)
 		
 		fascist_address = fascist_board_78[bot.fascist_policies_played]
-		fascist_address = os.path.join(r"D:\Projects\Discord\Bots\Games_Bot\Secret-Hitler-Bot\Images", fascist_address)
 		
 	else:
 		liberal_address = liberal_board[bot.liberal_policies_played]
-		liberal_address = os.path.join(r"D:\Projects\Discord\Bots\Games_Bot\Secret-Hitler-Bot\Images", liberal_address)
 		
 		fascist_address = fascist_board_910[bot.fascist_policies_played]
-		fascist_address = os.path.join(r"D:\Projects\Discord\Bots\Games_Bot\Secret-Hitler-Bot\Images", fascist_address)
 
 	return liberal_address, fascist_address
 
@@ -453,7 +447,8 @@ async def new_government():
 	else:
 		new_index = current_index + 1
 				
-	await bot.channel.send("{} and {} have left office.".format(bot.current_president.mention, bot.current_chancellor.mention))
+	if not bot.has_election_increased: 
+		await bot.channel.send("{} and {} have left office.".format(bot.current_president.mention, bot.current_chancellor.mention))
 				
 	bot.previous_president = bot.current_president
 	bot.previous_chancellor = bot.current_chancellor
@@ -468,7 +463,9 @@ async def new_government():
 	# These are here just in case, since the single instance of them up in the 'on_message' event doesn't seem to always reset them
 	bot.voted_yes = 0
 	bot.voted_no = 0
-						
+	
+	# Check for election tracker status and vary messages accordingly
+	
 	await bot.channel.send("{} is the new President!".format(bot.current_president.mention))
 	await bot.channel.send("When you are ready, {}, please nominate a Chancellor with the \"!nominate @nickname\" command!".format(bot.current_president.mention))
 					
@@ -618,6 +615,7 @@ async def lobby(ctx):
 			bot.pres_power = False
 			bot.take_pres_action = None
 			bot.election_tracker = 0
+			bot.has_election_increased = False
 	
 			await bot.channel.send("Lobby open! Join the lobby with " + bot.join_emoji + ". \n Leave the lobby with " + bot.leave_emoji + ". \n Check which players are in the lobby with " + bot.players_emoji + ". \n When all players have joined the lobby, start the game with " + bot.start_emoji + "!")
 		
@@ -676,7 +674,7 @@ async def start_game():
 			bot.hitler = member
 			await member.create_dm()
 			await member.dm_channel.send(f'You are Hitler!')
-			await member.dm_channel.send(file = discord.File(r"D:\Projects\Discord\Bots\Games_Bot\Secret-Hitler-Bot\Images\hitler.png"))
+			await member.dm_channel.send(file = discord.File("/home/pi/Secret-Hitler-Bot/Images/hitler.png"))
 			print("{} is Hitler".format(member.mention))
 			bot.fascists.append(member)
 			unassigned_players.remove(member)
@@ -686,7 +684,7 @@ async def start_game():
 				member = unassigned_players[selection]
 				await member.create_dm()
 				await member.dm_channel.send(f'You are a fascist!')
-				await member.dm_channel.send(file = discord.File(r"D:\Projects\Discord\Bots\Games_Bot\Secret-Hitler-Bot\Images\fascist.png"))
+				await member.dm_channel.send(file = discord.File("/home/pi/Secret-Hitler-Bot/Images/fascist.png"))
 				await member.dm_channel.send("{} is Hitler".format(bot.hitler.mention))
 				bot.fascists.append(member)
 				print("{} is a Fascist".format(member.mention))
@@ -699,7 +697,7 @@ async def start_game():
 			bot.hitler = member
 			await member.create_dm()
 			await member.dm_channel.send(f'You are Hitler!')
-			await member.dm_channel.send(file = discord.File(r"D:\Projects\Discord\Bots\Games_Bot\Secret-Hitler-Bot\Images\hitler.png"))
+			await member.dm_channel.send(file = discord.File("/home/pi/Secret-Hitler-Bot/Images/hitler.png"))
 			print("{} is Hitler".format(member.mention))
 			bot.fascists.append(member)
 			unassigned_players.remove(member)
@@ -709,7 +707,7 @@ async def start_game():
 				member = unassigned_players[selection]
 				await member.create_dm()
 				await member.dm_channel.send(f'You are a fascist!')
-				await member.dm_channel.send(file = discord.File(r"D:\Projects\Discord\Bots\Games_Bot\Secret-Hitler-Bot\Images\fascist.png"))
+				await member.dm_channel.send(file = discord.File("/home/pi/Secret-Hitler-Bot/Images/fascist.png"))
 				await member.dm_channel.send("{} is Hitler".format(bot.hitler.mention))
 				bot.fascists.append(member)
 				print("{} is a Fascist".format(member.mention))
@@ -722,7 +720,7 @@ async def start_game():
 			bot.hitler = member
 			await member.create_dm()
 			await member.dm_channel.send(f'You are Hitler!')
-			await member.dm_channel.send(file = discord.File(r"D:\Projects\Discord\Bots\Games_Bot\Secret-Hitler-Bot\Images\hitler.png"))
+			await member.dm_channel.send(file = discord.File("/home/pi/Secret-Hitler-Bot/Images/hitler.png"))
 			print("{} is Hitler".format(member.mention))
 			bot.fascists.append(member)
 			unassigned_players.remove(member)
@@ -731,19 +729,19 @@ async def start_game():
 			member = unassigned_players[selection]
 			await member.create_dm()
 			await member.dm_channel.send(f'You are a fascist!')
-			await member.dm_channel.send(file = discord.File(r"D:\Projects\Discord\Bots\Games_Bot\Secret-Hitler-Bot\Images\fascist.png"))
+			await member.dm_channel.send(file = discord.File("/home/pi/Secret-Hitler-Bot/Images/fascist.png"))
 			await member.dm_channel.send("{} is Hitler".format(bot.hitler.mention))
 			bot.fascists.append(member)
 			print("{} is a Fascist".format(member.mention))
 			unassigned_players.remove(member)
 			
-			await bot.hitler.dm_channel.send("Your Fascist ally is {}.".format(bot.fascists[0]))
+			await bot.hitler.dm_channel.send("Your Fascist ally is {}.".format(bot.fascists[1]))
 			
 		# For everyone that isn't a Fascist or Hitler, make them a Liberal
 		for member in unassigned_players:
 			await member.create_dm()
 			await member.dm_channel.send(f'You are a liberal!')
-			await member.dm_channel.send(file = discord.File(r"D:\Projects\Discord\Bots\Games_Bot\Secret-Hitler-Bot\Images\liberal.png"))
+			await member.dm_channel.send(file = discord.File("/home/pi/Secret-Hitler-Bot/Images/liberal.png"))
 			bot.liberals.append(member)
 			print("{} is a Liberal".format(member.mention))
 		
