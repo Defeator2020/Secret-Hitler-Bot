@@ -448,12 +448,12 @@ async def new_government():
 		new_index = current_index + 1
 				
 	if not bot.has_election_increased: 
-		await bot.channel.send("{} and {} have left office.".format(bot.current_president.mention, bot.current_chancellor.mention))
-				
-	bot.previous_president = bot.current_president
-	bot.previous_chancellor = bot.current_chancellor
-	await bot.current_president.remove_roles(bot.president_role)
-	await bot.current_chancellor.remove_roles(bot.chancellor_role)
+		await bot.channel.send("{} and {} have left office.".format(bot.current_president.mention, bot.current_chancellor.mention))	
+		bot.previous_president = bot.current_president
+		bot.previous_chancellor = bot.current_chancellor
+		await bot.current_president.remove_roles(bot.president_role)
+		await bot.current_chancellor.remove_roles(bot.chancellor_role)
+	
 	bot.current_president = None
 	bot.current_chancellor = None
 				
