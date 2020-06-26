@@ -7,7 +7,7 @@ from discord.ext import commands
 from dotenv import load_dotenv
 
 load_dotenv()
-TOKEN = 'NzA0MDUxMjM5NzA4NTI0NjE0.XvVpWA.gF6iqotoH_yj7-XE7yNjHA4avcc'
+TOKEN = 'token here'
 
 bot = commands.Bot(command_prefix='!')
 
